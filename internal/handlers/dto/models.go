@@ -1,6 +1,6 @@
 package dto
 
-import "locassist/internal/ollama"
+import "akernel/internal/ollama"
 
 type Prompt struct {
 	Model          string `json:"model"`

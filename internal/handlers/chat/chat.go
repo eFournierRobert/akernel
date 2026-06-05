@@ -1,12 +1,13 @@
 package chat
 
 import (
+	"akernel/internal/database"
+	"akernel/internal/handlers/dto"
+	"akernel/internal/ollama"
+	"akernel/internal/service"
 	"encoding/json"
 	"io"
-	"locassist/internal/database"
-	"locassist/internal/handlers/dto"
-	"locassist/internal/ollama"
-	"locassist/internal/service"
+	"log"
 	"net/http"
 )
 
@@ -40,18 +41,21 @@ func (h *Handler) Chat(w http.ResponseWriter, r *http.Request) {
 
 	conversationId, err := h.Service.InsertPrompt(&prompt)
 	if err != nil {
+		log.Printf("ERROR: %s", err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	history, err := h.Service.FetchConversationHistory(conversationId)
 	if err != nil {
+		log.Printf("ERROR: %s", err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	answer, err := h.OllamaService.PostChat(prompt.Message, prompt.Model, history)
 	if err != nil {
+		log.Printf("ERROR: %s", err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -63,7 +67,8 @@ func (h *Handler) Chat(w http.ResponseWriter, r *http.Request) {
 
 	var rawAnswer ollama.MessageFormat
 	if err = json.Unmarshal(answer, &rawAnswer); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		log.Printf("ERROR: %s", err.Error())
+		w.WriteHeader(http.StatusOK)
 		return
 	}
 
@@ -74,6 +79,7 @@ func (h *Handler) Chat(w http.ResponseWriter, r *http.Request) {
 
 	jsonResponse, err := json.Marshal(answerDto)
 	if err != nil {
+		log.Printf("ERROR: %s", err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

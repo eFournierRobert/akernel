@@ -1,10 +1,10 @@
 package main
 
 import (
+	"akernel/internal/database"
+	"akernel/internal/handlers/chat"
+	"akernel/internal/ollama"
 	"flag"
-	"locassist/internal/database"
-	"locassist/internal/handlers/chat"
-	"locassist/internal/ollama"
 	"log"
 	"net/http"
 )

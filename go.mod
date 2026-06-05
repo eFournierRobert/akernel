@@ -1,4 +1,4 @@
-module locassist
+module akernel
 
 go 1.26.3
 

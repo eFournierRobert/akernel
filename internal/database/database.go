@@ -1,7 +1,7 @@
 package database
 
 import (
-	"locassist/internal/ollama"
+	"akernel/internal/ollama"
 
 	"github.com/adrg/xdg"
 	"github.com/jmoiron/sqlx"

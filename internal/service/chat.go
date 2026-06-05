@@ -1,9 +1,9 @@
 package service
 
 import (
-	"locassist/internal/database"
-	"locassist/internal/handlers/dto"
-	"locassist/internal/ollama"
+	"akernel/internal/database"
+	"akernel/internal/handlers/dto"
+	"akernel/internal/ollama"
 	"time"
 )
 
