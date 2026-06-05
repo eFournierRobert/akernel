@@ -86,6 +86,13 @@ func (database *Database) SelectConversations() ([]Conversation, error) {
 	return conversations, err
 }
 
+func (database *Database) PopLastUserMessage(conversationId int) error {
+	_, err := database.Db.Exec(
+		"DELETE FROM messages WHERE id = (SELECT id FROM messages WHERE role = 'user' AND conversation_id = $1 ORDER BY datetime DESC LIMIT 1)",
+		conversationId)
+	return err
+}
+
 func (database *Database) ensureConversation(conversation *Conversation) error {
 	_, err := database.Db.NamedExec("INSERT OR IGNORE INTO conversations (title) VALUES (:title)", conversation)
 	if err != nil {

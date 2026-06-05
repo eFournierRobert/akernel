@@ -25,7 +25,12 @@ type Message struct {
 	Format    *jsonschema.Schema `json:"format"`
 	Think     bool               `json:"think"`
 	KeepAlive string             `json:"keep_alive"`
-	Stream    bool
+	Stream    bool               `json:"stream"`
+	Options   Options            `json:"options"`
+}
+
+type Options struct {
+	Temperature float32 `json:"temperature"`
 }
 
 type MessageResponse struct {

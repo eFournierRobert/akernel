@@ -60,16 +60,25 @@ func (h *Handler) Chat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = h.Service.InsertAssistantAnswer(answer, conversationId); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
 	var rawAnswer ollama.MessageFormat
 	if err = json.Unmarshal(answer, &rawAnswer); err != nil {
 		log.Printf("ERROR: %s", err.Error())
 		w.WriteHeader(http.StatusOK)
 		return
+	}
+
+	if len(rawAnswer.MessageBody) != 0 && rawAnswer.MessageBody[0].Body != "" {
+		if err = h.Service.InsertAssistantAnswer(answer, conversationId); err != nil {
+			log.Printf("ERROR: %s", err.Error())
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+	} else {
+		if err = h.Service.PopLastUserMessage(conversationId); err != nil {
+			log.Printf("ERROR: %s", err.Error())
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 	}
 
 	answerDto := dto.Answer{
