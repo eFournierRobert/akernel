@@ -1,0 +1,18 @@
+package dto
+
+import "locassist/internal/ollama"
+
+type Prompt struct {
+	Model          string `json:"model"`
+	Message        string `json:"message"`
+	ConversationId int    `json:"conversationId"`
+}
+
+type Answer struct {
+	ConversationId int                  `json:"conversationId"`
+	Message        ollama.MessageFormat `json:"message"`
+}
+
+type Conversation struct {
+	Title string `json:"title"`
+}
