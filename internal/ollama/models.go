@@ -3,10 +3,9 @@ package ollama
 import "github.com/google/jsonschema-go/jsonschema"
 
 type Model struct {
-	Name          string `json:"name"`
-	Model         string `json:"model"`
-	ParameterSize string `json:"parameter_size"`
-	Size          int    `json:"size"`
+	Name  string `json:"name"`
+	Model string `json:"model"`
+	Size  int    `json:"size"`
 }
 
 type Models struct {
