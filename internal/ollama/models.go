@@ -3,10 +3,9 @@ package ollama
 import "github.com/google/jsonschema-go/jsonschema"
 
 type Model struct {
-	Name          string `json:"name"`
-	Model         string `json:"model"`
-	ParameterSize string `json:"parameter_size"`
-	Size          int    `json:"size"`
+	Name  string `json:"name"`
+	Model string `json:"model"`
+	Size  int    `json:"size"`
 }
 
 type Models struct {
@@ -26,7 +25,12 @@ type Message struct {
 	Format    *jsonschema.Schema `json:"format"`
 	Think     bool               `json:"think"`
 	KeepAlive string             `json:"keep_alive"`
-	Stream    bool
+	Stream    bool               `json:"stream"`
+	Options   Options            `json:"options"`
+}
+
+type Options struct {
+	Temperature float32 `json:"temperature"`
 }
 
 type MessageResponse struct {

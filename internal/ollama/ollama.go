@@ -76,17 +76,21 @@ func (oService *Service) PostChat(message string, modelName string, history []Hi
 		Content: message,
 	}
 
-	history = append(history, systemPrompt)
-	history = append(history, historyMessage)
+	fullHistory := []HistoryMessage{systemPrompt}
+	fullHistory = append(fullHistory, history...)
+	fullHistory = append(fullHistory, historyMessage)
 
 	schema, err := jsonschema.For[MessageFormat](&jsonschema.ForOptions{})
 	body := Message{
 		Model:     modelName,
-		Messages:  history,
+		Messages:  fullHistory,
 		Format:    schema,
 		Think:     true,
 		KeepAlive: "5m",
 		Stream:    true,
+		Options: Options{
+			Temperature: 0.8,
+		},
 	}
 
 	jsonBody, err := json.Marshal(&body)

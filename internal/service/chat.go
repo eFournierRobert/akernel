@@ -77,3 +77,7 @@ func (service *ChatService) FetchConversations() ([]dto.Conversation, error) {
 
 	return conversationDto, nil
 }
+
+func (service *ChatService) PopLastUserMessage(conversationId int) error {
+	return service.database.PopLastUserMessage(conversationId)
+}

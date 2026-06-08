@@ -16,3 +16,9 @@ type Answer struct {
 type Conversation struct {
 	Title string `json:"title"`
 }
+
+type Model struct {
+	Name  string  `json:"name"`
+	Model string  `json:"model"`
+	Size  float32 `json:"size"`
+}
