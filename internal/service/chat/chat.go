@@ -25,6 +25,7 @@ func NewChatService(database *database.Database, ollama *ollama.Service) *Servic
 	return &service
 }
 
+// GeneratePromptAnswer takes a user prompt and generates an AI answer. Also creates a conversation if necessary.
 func (s *Service) GeneratePromptAnswer(prompt *dto.Prompt) (*dto.Answer, error) {
 	conversationId, err := s.insertPrompt(prompt)
 	if err != nil {
@@ -92,7 +93,26 @@ func (s *Service) FetchConversations() ([]dto.Conversation, error) {
 	return conversationDto, nil
 }
 
-// InsertPrompt saves a user's message to the database and returns the associated conversation ID.
+// GetModels returns a list of available AI models.
+func (s *Service) GetModels() ([]dto.Model, error) {
+	modelList, err := s.ollamaService.GetModels()
+	if err != nil {
+		return nil, err
+	}
+
+	var dtoModelList []dto.Model
+	for _, model := range modelList.ModelList {
+		dtoModelList = append(dtoModelList, dto.Model{
+			Name:  model.Name,
+			Model: model.Model,
+			Size:  convertSizeToGB(model.Size),
+		})
+	}
+
+	return dtoModelList, nil
+}
+
+// insertPrompt saves a user's message to the database and returns the associated conversation ID.
 func (s *Service) insertPrompt(prompt *dto.Prompt) (int, error) {
 	message := database.Message{
 		Role:           "user",
@@ -123,7 +143,7 @@ func (s *Service) insertPrompt(prompt *dto.Prompt) (int, error) {
 	return message.ConversationId, nil
 }
 
-// FetchConversationHistory retrieves all messages for a conversation and converts them into the history format required by Ollama.
+// fetchConversationHistory retrieves all messages for a conversation and converts them into the history format required by Ollama.
 func (s *Service) fetchConversationHistory(conversationId int) ([]ollama.HistoryMessage, error) {
 	messages, err := s.database.SelectMessagesOfConvo(conversationId)
 	if err != nil {
@@ -139,4 +159,9 @@ func (s *Service) fetchConversationHistory(conversationId int) ([]ollama.History
 	}
 
 	return history, nil
+}
+
+// convertSizeToGB converts a model size from bytes to gigabytes.
+func convertSizeToGB(bytes int) float32 {
+	return float32(bytes) / float32(1073741824)
 }
