@@ -11,11 +11,13 @@ import (
 	"net/http"
 )
 
+// Handler manages HTTP requests for chat operations
 type Handler struct {
 	OllamaService *ollama.Service
 	Service       *service.ChatService
 }
 
+// New creates a new instance of Handler with the required services.
 func New(ollamaService *ollama.Service, database *database.Database) *Handler {
 	chatService := service.NewChatService(database)
 
@@ -25,6 +27,7 @@ func New(ollamaService *ollama.Service, database *database.Database) *Handler {
 	}
 }
 
+// Chat handles POST requests to process a user prompt and return an AI-generated response.
 func (h *Handler) Chat(w http.ResponseWriter, r *http.Request) {
 	bodyContent, err := io.ReadAll(r.Body)
 	defer r.Body.Close()
@@ -98,6 +101,7 @@ func (h *Handler) Chat(w http.ResponseWriter, r *http.Request) {
 	w.Write(jsonResponse)
 }
 
+// GetConversations retrieves a list of all available conversations for the user.
 func (h *Handler) GetConversations(w http.ResponseWriter, r *http.Request) {
 	conversations, err := h.Service.FetchConversations()
 	if err != nil {
@@ -118,6 +122,7 @@ func (h *Handler) GetConversations(w http.ResponseWriter, r *http.Request) {
 	w.Write(convoJson)
 }
 
+// GetModels retrieves a list of available AI models from the Ollama service.
 func (h *Handler) GetModels(w http.ResponseWriter, r *http.Request) {
 	modelList, err := h.OllamaService.GetModels()
 	if err != nil {
@@ -147,6 +152,7 @@ func (h *Handler) GetModels(w http.ResponseWriter, r *http.Request) {
 	w.Write(modelsJson)
 }
 
+// convertSizeToGB converts a model size from bytes to gigabytes.
 func convertSizeToGB(bytes int) float32 {
 	return float32(bytes) / float32(1073741824)
 }

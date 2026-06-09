@@ -71,6 +71,7 @@ func (service *ChatService) FetchConversations() ([]dto.Conversation, error) {
 	var conversationDto []dto.Conversation
 	for _, c := range conversations {
 		conversationDto = append(conversationDto, dto.Conversation{
+			Id:    c.ID,
 			Title: c.Title,
 		})
 	}
