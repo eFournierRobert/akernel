@@ -3,21 +3,23 @@ package chat
 import (
 	"akernel/internal/database"
 	"akernel/internal/handlers/dto"
-	"akernel/internal/ollama"
-	"akernel/internal/service"
+	"akernel/internal/service/chat"
+	ollama2 "akernel/internal/service/ollama"
 	"encoding/json"
 	"io"
 	"log"
 	"net/http"
 )
 
+// Handler manages HTTP requests for chat operations
 type Handler struct {
-	OllamaService *ollama.Service
-	Service       *service.ChatService
+	OllamaService *ollama2.Service
+	Service       *chat.Service
 }
 
-func New(ollamaService *ollama.Service, database *database.Database) *Handler {
-	chatService := service.NewChatService(database)
+// New creates a new instance of Handler with the required services.
+func New(ollamaService *ollama2.Service, database *database.Database) *Handler {
+	chatService := chat.NewChatService(database)
 
 	return &Handler{
 		OllamaService: ollamaService,
@@ -25,7 +27,10 @@ func New(ollamaService *ollama.Service, database *database.Database) *Handler {
 	}
 }
 
+// Chat handles POST requests to process a user prompt and return an AI-generated response.
 func (h *Handler) Chat(w http.ResponseWriter, r *http.Request) {
+	log.Println(r.URL.Path)
+
 	bodyContent, err := io.ReadAll(r.Body)
 	defer r.Body.Close()
 	if err != nil {
@@ -60,7 +65,7 @@ func (h *Handler) Chat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var rawAnswer ollama.MessageFormat
+	var rawAnswer ollama2.MessageFormat
 	if err = json.Unmarshal(answer, &rawAnswer); err != nil {
 		log.Printf("ERROR: %s", err.Error())
 		w.WriteHeader(http.StatusOK)
@@ -98,7 +103,10 @@ func (h *Handler) Chat(w http.ResponseWriter, r *http.Request) {
 	w.Write(jsonResponse)
 }
 
+// GetConversations retrieves a list of all available conversations for the user.
 func (h *Handler) GetConversations(w http.ResponseWriter, r *http.Request) {
+	log.Println(r.URL.Path)
+
 	conversations, err := h.Service.FetchConversations()
 	if err != nil {
 		log.Printf("ERROR: %s", err.Error())
@@ -118,7 +126,10 @@ func (h *Handler) GetConversations(w http.ResponseWriter, r *http.Request) {
 	w.Write(convoJson)
 }
 
+// GetModels retrieves a list of available AI models from the Ollama service.
 func (h *Handler) GetModels(w http.ResponseWriter, r *http.Request) {
+	log.Println(r.URL.Path)
+
 	modelList, err := h.OllamaService.GetModels()
 	if err != nil {
 		log.Printf("ERROR: %s", err.Error())
@@ -147,6 +158,7 @@ func (h *Handler) GetModels(w http.ResponseWriter, r *http.Request) {
 	w.Write(modelsJson)
 }
 
+// convertSizeToGB converts a model size from bytes to gigabytes.
 func convertSizeToGB(bytes int) float32 {
 	return float32(bytes) / float32(1073741824)
 }
