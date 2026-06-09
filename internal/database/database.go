@@ -1,7 +1,7 @@
 package database
 
 import (
-	"akernel/internal/ollama"
+	"akernel/internal/service/ollama"
 
 	"github.com/adrg/xdg"
 	"github.com/jmoiron/sqlx"

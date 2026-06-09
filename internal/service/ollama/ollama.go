@@ -15,12 +15,15 @@ import (
 	"github.com/google/jsonschema-go/jsonschema"
 )
 
+// ollamaBasePath is the base URL for the Ollama API.
 const ollamaBasePath = "http://localhost:11434/api"
 
+// Service provides a client for interacting with the Ollama AI service.
 type Service struct {
 	systemPrompt string
 }
 
+// New initializes a new Service by loading the system prompt from the configuration file.
 func New() (*Service, error) {
 	systemPromptPath, err := xdg.ConfigFile("akernel/system.md")
 	if err != nil {
@@ -45,6 +48,7 @@ func New() (*Service, error) {
 	return &ollamaService, nil
 }
 
+// GetModels retrieves a list of available AI models from the Ollama service.
 func (oService *Service) GetModels() (*Models, error) {
 	res, err := http.Get(buildPath("/tags"))
 	if err != nil {
@@ -66,6 +70,7 @@ func (oService *Service) GetModels() (*Models, error) {
 	return &models, nil
 }
 
+// PostChat sends a message along with conversation history to the specified Ollama model and returns the generated response.
 func (oService *Service) PostChat(message string, modelName string, history []HistoryMessage) ([]byte, error) {
 	systemPrompt := HistoryMessage{
 		Role:    "system",
@@ -129,6 +134,7 @@ func (oService *Service) PostChat(message string, modelName string, history []Hi
 	return nil, errors.New(string(b))
 }
 
+// GenerateConversationTitle asks the smallest available AI model to generate a short title for a given message.
 func (oService *Service) GenerateConversationTitle(message string) (string, error) {
 	models, err := oService.GetModels()
 	if err != nil {
@@ -154,6 +160,7 @@ func (oService *Service) GenerateConversationTitle(message string) (string, erro
 	return answer.MessageBody[0].Body, nil
 }
 
+// buildPath constructs a full URL for the Ollama API endpoints.
 func buildPath(path string) string {
 	return fmt.Sprintf("%s%s", ollamaBasePath, path)
 }

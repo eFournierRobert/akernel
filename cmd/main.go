@@ -3,7 +3,7 @@ package main
 import (
 	"akernel/internal/database"
 	"akernel/internal/handlers/chat"
-	"akernel/internal/ollama"
+	"akernel/internal/service/ollama"
 	"flag"
 	"log"
 	"net/http"

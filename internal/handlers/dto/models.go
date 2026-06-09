@@ -1,6 +1,8 @@
 package dto
 
-import "akernel/internal/ollama"
+import (
+	"akernel/internal/service/ollama"
+)
 
 // Prompt is the DTO for a received prompt.
 type Prompt struct {

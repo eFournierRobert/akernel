@@ -3,8 +3,8 @@ package chat
 import (
 	"akernel/internal/database"
 	"akernel/internal/handlers/dto"
-	"akernel/internal/ollama"
-	"akernel/internal/service"
+	"akernel/internal/service/chat"
+	ollama2 "akernel/internal/service/ollama"
 	"encoding/json"
 	"io"
 	"log"
@@ -13,13 +13,13 @@ import (
 
 // Handler manages HTTP requests for chat operations
 type Handler struct {
-	OllamaService *ollama.Service
-	Service       *service.ChatService
+	OllamaService *ollama2.Service
+	Service       *chat.Service
 }
 
 // New creates a new instance of Handler with the required services.
-func New(ollamaService *ollama.Service, database *database.Database) *Handler {
-	chatService := service.NewChatService(database)
+func New(ollamaService *ollama2.Service, database *database.Database) *Handler {
+	chatService := chat.NewChatService(database)
 
 	return &Handler{
 		OllamaService: ollamaService,
@@ -63,7 +63,7 @@ func (h *Handler) Chat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var rawAnswer ollama.MessageFormat
+	var rawAnswer ollama2.MessageFormat
 	if err = json.Unmarshal(answer, &rawAnswer); err != nil {
 		log.Printf("ERROR: %s", err.Error())
 		w.WriteHeader(http.StatusOK)
