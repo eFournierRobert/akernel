@@ -9,11 +9,13 @@ import (
 	"github.com/pressly/goose/v3"
 )
 
+// Database manages the persistence of conversations and messages.
 type Database struct {
-	Db            *sqlx.DB
+	db            *sqlx.DB
 	ollamaService *ollama.Service
 }
 
+// ConnectDB connects to SQLite, runs migrations, and sets the database path based on the isDev flag.
 func ConnectDB(ollamaService *ollama.Service, isDev bool) (*Database, error) {
 	var dbPath string
 	if !isDev {
@@ -45,15 +47,16 @@ func ConnectDB(ollamaService *ollama.Service, isDev bool) (*Database, error) {
 	}
 
 	database := Database{
-		Db:            db,
+		db:            db,
 		ollamaService: ollamaService,
 	}
 	return &database, nil
 }
 
-func (database *Database) InsertMessage(message *Message) error {
+// InsertMessage saves a message to the database and creates a new conversation if necessary.
+func (d *Database) InsertMessage(message *Message) error {
 	if message.ConversationId == -1 {
-		title, err := database.ollamaService.GenerateConversationTitle(message.Content)
+		title, err := d.ollamaService.GenerateConversationTitle(message.Content)
 		if err != nil {
 			return err
 		}
@@ -61,44 +64,48 @@ func (database *Database) InsertMessage(message *Message) error {
 		newConversation := Conversation{
 			Title: title,
 		}
-		if err = database.ensureConversation(&newConversation); err != nil {
+		if err = d.ensureConversation(&newConversation); err != nil {
 			return err
 		}
 		message.ConversationId = newConversation.ID
 	}
 
-	_, err := database.Db.NamedExec("INSERT INTO messages (role, content, conversation_id, datetime) VALUES (:role, :content, :conversation_id, :datetime)", message)
+	_, err := d.db.NamedExec("INSERT INTO messages (role, content, conversation_id, datetime) VALUES (:role, :content, :conversation_id, :datetime)", message)
 	return err
 }
 
-func (database *Database) SelectMessagesOfConvo(conversationId int) ([]Message, error) {
+// SelectMessagesOfConvo retrieves all messages for a specific conversation, ordered by date.
+func (d *Database) SelectMessagesOfConvo(conversationId int) ([]Message, error) {
 	var messages []Message
-	err := database.Db.Select(&messages, "SELECT role, content FROM messages WHERE conversation_id = $1 ORDER BY datetime ASC", conversationId)
+	err := d.db.Select(&messages, "SELECT role, content FROM messages WHERE conversation_id = $1 ORDER BY datetime ASC", conversationId)
 	if err != nil {
 		return nil, err
 	}
 	return messages, nil
 }
 
-func (database *Database) SelectConversations() ([]Conversation, error) {
+// SelectConversations retrieves a list of all available conversations.
+func (d *Database) SelectConversations() ([]Conversation, error) {
 	var conversations []Conversation
-	err := database.Db.Select(&conversations, "SELECT title FROM conversations")
+	err := d.db.Select(&conversations, "SELECT title FROM conversations")
 	return conversations, err
 }
 
-func (database *Database) PopLastUserMessage(conversationId int) error {
-	_, err := database.Db.Exec(
+// PopLastUserMessage removes the most recent message sent by the user in a specific conversation.
+func (d *Database) PopLastUserMessage(conversationId int) error {
+	_, err := d.db.Exec(
 		"DELETE FROM messages WHERE id = (SELECT id FROM messages WHERE role = 'user' AND conversation_id = $1 ORDER BY datetime DESC LIMIT 1)",
 		conversationId)
 	return err
 }
 
-func (database *Database) ensureConversation(conversation *Conversation) error {
-	_, err := database.Db.NamedExec("INSERT OR IGNORE INTO conversations (title) VALUES (:title)", conversation)
+// ensureConversation ensures a conversation exists in the database and populates its details.
+func (d *Database) ensureConversation(conversation *Conversation) error {
+	_, err := d.db.NamedExec("INSERT OR IGNORE INTO conversations (title) VALUES (:title)", conversation)
 	if err != nil {
 		return err
 	}
 
-	err = database.Db.Get(conversation, "SELECT id, title FROM conversations WHERE title = $1", conversation.Title)
+	err = d.db.Get(conversation, "SELECT id, title FROM conversations WHERE title = $1", conversation.Title)
 	return err
 }
