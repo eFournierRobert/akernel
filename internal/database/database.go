@@ -87,7 +87,7 @@ func (d *Database) SelectMessagesOfConvo(conversationId int) ([]Message, error) 
 // SelectConversations retrieves a list of all available conversations.
 func (d *Database) SelectConversations() ([]Conversation, error) {
 	var conversations []Conversation
-	err := d.db.Select(&conversations, "SELECT title FROM conversations")
+	err := d.db.Select(&conversations, "SELECT id, title FROM conversations")
 	return conversations, err
 }
 

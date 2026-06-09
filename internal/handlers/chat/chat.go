@@ -29,6 +29,8 @@ func New(ollamaService *ollama2.Service, database *database.Database) *Handler {
 
 // Chat handles POST requests to process a user prompt and return an AI-generated response.
 func (h *Handler) Chat(w http.ResponseWriter, r *http.Request) {
+	log.Println(r.URL.Path)
+
 	bodyContent, err := io.ReadAll(r.Body)
 	defer r.Body.Close()
 	if err != nil {
@@ -103,6 +105,8 @@ func (h *Handler) Chat(w http.ResponseWriter, r *http.Request) {
 
 // GetConversations retrieves a list of all available conversations for the user.
 func (h *Handler) GetConversations(w http.ResponseWriter, r *http.Request) {
+	log.Println(r.URL.Path)
+
 	conversations, err := h.Service.FetchConversations()
 	if err != nil {
 		log.Printf("ERROR: %s", err.Error())
@@ -124,6 +128,8 @@ func (h *Handler) GetConversations(w http.ResponseWriter, r *http.Request) {
 
 // GetModels retrieves a list of available AI models from the Ollama service.
 func (h *Handler) GetModels(w http.ResponseWriter, r *http.Request) {
+	log.Println(r.URL.Path)
+
 	modelList, err := h.OllamaService.GetModels()
 	if err != nil {
 		log.Printf("ERROR: %s", err.Error())
