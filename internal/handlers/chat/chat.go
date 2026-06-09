@@ -4,8 +4,9 @@ import (
 	"akernel/internal/database"
 	"akernel/internal/handlers/dto"
 	"akernel/internal/service/chat"
-	ollama2 "akernel/internal/service/ollama"
+	"akernel/internal/service/ollama"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -13,17 +14,15 @@ import (
 
 // Handler manages HTTP requests for chat operations
 type Handler struct {
-	OllamaService *ollama2.Service
-	Service       *chat.Service
+	service *chat.Service
 }
 
 // New creates a new instance of Handler with the required services.
-func New(ollamaService *ollama2.Service, database *database.Database) *Handler {
-	chatService := chat.NewChatService(database)
+func New(ollamaService *ollama.Service, database *database.Database) *Handler {
+	chatService := chat.NewChatService(database, ollamaService)
 
 	return &Handler{
-		OllamaService: ollamaService,
-		Service:       chatService,
+		service: chatService,
 	}
 }
 
@@ -44,56 +43,16 @@ func (h *Handler) Chat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conversationId, err := h.Service.InsertPrompt(&prompt)
+	answer, err := h.service.GeneratePromptAnswer(&prompt)
 	if err != nil {
-		log.Printf("ERROR: %s", err.Error())
-		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Errorf("ERROR: %w", err)
+		w.WriteHeader(http.StatusInternalServerError) // temporary
 		return
 	}
 
-	history, err := h.Service.FetchConversationHistory(conversationId)
+	jsonResponse, err := json.Marshal(answer)
 	if err != nil {
-		log.Printf("ERROR: %s", err.Error())
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	answer, err := h.OllamaService.PostChat(prompt.Message, prompt.Model, history)
-	if err != nil {
-		log.Printf("ERROR: %s", err.Error())
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	var rawAnswer ollama2.MessageFormat
-	if err = json.Unmarshal(answer, &rawAnswer); err != nil {
-		log.Printf("ERROR: %s", err.Error())
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-
-	if len(rawAnswer.MessageBody) != 0 && rawAnswer.MessageBody[0].Body != "" {
-		if err = h.Service.InsertAssistantAnswer(answer, conversationId); err != nil {
-			log.Printf("ERROR: %s", err.Error())
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-	} else {
-		if err = h.Service.PopLastUserMessage(conversationId); err != nil {
-			log.Printf("ERROR: %s", err.Error())
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-	}
-
-	answerDto := dto.Answer{
-		Message:        rawAnswer,
-		ConversationId: conversationId,
-	}
-
-	jsonResponse, err := json.Marshal(answerDto)
-	if err != nil {
-		log.Printf("ERROR: %s", err.Error())
+		fmt.Errorf("ERROR: %w", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -107,7 +66,7 @@ func (h *Handler) Chat(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) GetConversations(w http.ResponseWriter, r *http.Request) {
 	log.Println(r.URL.Path)
 
-	conversations, err := h.Service.FetchConversations()
+	conversations, err := h.service.FetchConversations()
 	if err != nil {
 		log.Printf("ERROR: %s", err.Error())
 		w.WriteHeader(http.StatusInternalServerError)

@@ -19,7 +19,7 @@ func main() {
 		log.Fatalln(err.Error())
 	}
 
-	db, err := database.ConnectDB(ollamaService, *isDev)
+	db, err := database.ConnectDB(*isDev)
 	if err != nil {
 		log.Fatalln(err.Error())
 	}
