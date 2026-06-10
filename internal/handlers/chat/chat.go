@@ -3,9 +3,12 @@ package chat
 import (
 	"akernel/internal/database"
 	"akernel/internal/handlers/dto"
+	"akernel/internal/service"
 	"akernel/internal/service/chat"
-	ollama2 "akernel/internal/service/ollama"
+	"akernel/internal/service/ollama"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -13,17 +16,15 @@ import (
 
 // Handler manages HTTP requests for chat operations
 type Handler struct {
-	OllamaService *ollama2.Service
-	Service       *chat.Service
+	service *chat.Service
 }
 
 // New creates a new instance of Handler with the required services.
-func New(ollamaService *ollama2.Service, database *database.Database) *Handler {
-	chatService := chat.NewChatService(database)
+func New(ollamaService *ollama.Service, database *database.Database) *Handler {
+	chatService := chat.NewChatService(database, ollamaService)
 
 	return &Handler{
-		OllamaService: ollamaService,
-		Service:       chatService,
+		service: chatService,
 	}
 }
 
@@ -44,56 +45,21 @@ func (h *Handler) Chat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conversationId, err := h.Service.InsertPrompt(&prompt)
+	answer, err := h.service.GeneratePromptAnswer(&prompt)
 	if err != nil {
-		log.Printf("ERROR: %s", err.Error())
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	history, err := h.Service.FetchConversationHistory(conversationId)
-	if err != nil {
-		log.Printf("ERROR: %s", err.Error())
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	answer, err := h.OllamaService.PostChat(prompt.Message, prompt.Model, history)
-	if err != nil {
-		log.Printf("ERROR: %s", err.Error())
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	var rawAnswer ollama2.MessageFormat
-	if err = json.Unmarshal(answer, &rawAnswer); err != nil {
-		log.Printf("ERROR: %s", err.Error())
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-
-	if len(rawAnswer.MessageBody) != 0 && rawAnswer.MessageBody[0].Body != "" {
-		if err = h.Service.InsertAssistantAnswer(answer, conversationId); err != nil {
-			log.Printf("ERROR: %s", err.Error())
+		log.Println(err)
+		switch {
+		case errors.Is(err, service.ErrInvalidConversation), errors.Is(err, service.ErrModelNotFound):
+			w.WriteHeader(http.StatusBadRequest)
+		default:
 			w.WriteHeader(http.StatusInternalServerError)
-			return
 		}
-	} else {
-		if err = h.Service.PopLastUserMessage(conversationId); err != nil {
-			log.Printf("ERROR: %s", err.Error())
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
+		return
 	}
 
-	answerDto := dto.Answer{
-		Message:        rawAnswer,
-		ConversationId: conversationId,
-	}
-
-	jsonResponse, err := json.Marshal(answerDto)
+	jsonResponse, err := json.Marshal(answer)
 	if err != nil {
-		log.Printf("ERROR: %s", err.Error())
+		fmt.Errorf("ERROR: %w", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -107,9 +73,9 @@ func (h *Handler) Chat(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) GetConversations(w http.ResponseWriter, r *http.Request) {
 	log.Println(r.URL.Path)
 
-	conversations, err := h.Service.FetchConversations()
+	conversations, err := h.service.FetchConversations()
 	if err != nil {
-		log.Printf("ERROR: %s", err.Error())
+		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -126,29 +92,20 @@ func (h *Handler) GetConversations(w http.ResponseWriter, r *http.Request) {
 	w.Write(convoJson)
 }
 
-// GetModels retrieves a list of available AI models from the Ollama service.
+// GetModels retrieves a list of available AI models.
 func (h *Handler) GetModels(w http.ResponseWriter, r *http.Request) {
 	log.Println(r.URL.Path)
 
-	modelList, err := h.OllamaService.GetModels()
+	modelList, err := h.service.GetModels()
 	if err != nil {
-		log.Printf("ERROR: %s", err.Error())
+		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	var models []dto.Model
-	for _, model := range modelList.ModelList {
-		models = append(models, dto.Model{
-			Name:  model.Name,
-			Model: model.Model,
-			Size:  convertSizeToGB(model.Size),
-		})
-	}
-
-	modelsJson, err := json.Marshal(models)
+	modelsJson, err := json.Marshal(modelList)
 	if err != nil {
-		log.Printf("ERROR: %s", err.Error())
+		fmt.Errorf("error: %w", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -156,9 +113,4 @@ func (h *Handler) GetModels(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(modelsJson)
-}
-
-// convertSizeToGB converts a model size from bytes to gigabytes.
-func convertSizeToGB(bytes int) float32 {
-	return float32(bytes) / float32(1073741824)
 }

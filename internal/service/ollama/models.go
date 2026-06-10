@@ -48,11 +48,5 @@ type MessageResponse struct {
 
 // MessageFormat is the structured format used for AI responses as defined by a JSON schema.
 type MessageFormat struct {
-	MessageBody []MessageParagraph `json:"messageBody" jsonschema:"body containing a group of paragraphs"`
-}
-
-// MessageParagraph represents a section of a formatted message, consisting of an optional heading and markdown content.
-type MessageParagraph struct {
-	Heading string `json:"Heading" jsonschema:"Heading of this paragraph. This is not required if unnecessary."`
-	Body    string `json:"body" jsonschema:"paragraph body in markdown"`
+	MessageBody string `json:"messageBody" jsonschema:"body containing a markdown answer to a prompt"`
 }
