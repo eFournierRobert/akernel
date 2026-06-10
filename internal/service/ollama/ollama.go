@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"sort"
 
 	"github.com/adrg/xdg"
 	"github.com/google/jsonschema-go/jsonschema"
@@ -71,7 +70,7 @@ func (oService *Service) GetModels() (*Models, error) {
 }
 
 // PostChat sends a message along with conversation history to the specified Ollama model and returns the generated response.
-func (oService *Service) PostChat(message string, modelName string, history []HistoryMessage) ([]byte, error) {
+func (oService *Service) PostChat(message, modelName string, history []HistoryMessage, thinking bool) ([]byte, error) {
 	systemPrompt := HistoryMessage{
 		Role:    "system",
 		Content: oService.systemPrompt,
@@ -90,9 +89,9 @@ func (oService *Service) PostChat(message string, modelName string, history []Hi
 		Model:     modelName,
 		Messages:  fullHistory,
 		Format:    schema,
-		Think:     true,
+		Think:     thinking,
 		KeepAlive: "5m",
-		Stream:    true,
+		Stream:    false,
 		Options: Options{
 			Temperature: 0.8,
 		},
@@ -135,19 +134,11 @@ func (oService *Service) PostChat(message string, modelName string, history []Hi
 }
 
 // GenerateConversationTitle asks the smallest available AI model to generate a short title for a given message.
-func (oService *Service) GenerateConversationTitle(message string) (string, error) {
-	models, err := oService.GetModels()
-	if err != nil {
-		return "", err
-	}
-	sort.Slice(models.ModelList, func(i, j int) bool {
-		return models.ModelList[i].Size < models.ModelList[j].Size
-	})
-
+func (oService *Service) GenerateConversationTitle(message, model string) (string, error) {
 	titlePrompt := fmt.Sprintf("Can you generate a small conversation title of maximum five words for this message. Only answer with the title. Message: %s", message)
 
 	var emptyHistory []HistoryMessage
-	answerBytes, err := oService.PostChat(titlePrompt, models.ModelList[0].Model, emptyHistory)
+	answerBytes, err := oService.PostChat(titlePrompt, model, emptyHistory, false)
 	if err != nil {
 		return "", err
 	}

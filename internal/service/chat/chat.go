@@ -37,7 +37,7 @@ func (s *Service) GeneratePromptAnswer(prompt *dto.Prompt) (*dto.Answer, error) 
 		return nil, err
 	}
 
-	rawAnswer, err := s.ollamaService.PostChat(prompt.Message, prompt.Model, history)
+	rawAnswer, err := s.ollamaService.PostChat(prompt.Message, prompt.Model, history, true)
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +122,7 @@ func (s *Service) insertPrompt(prompt *dto.Prompt) (int, error) {
 	}
 
 	if message.ConversationId == -1 {
-		title, err := s.ollamaService.GenerateConversationTitle(message.Content)
+		title, err := s.ollamaService.GenerateConversationTitle(message.Content, prompt.Model)
 		if err != nil {
 			return 0, err
 		}
