@@ -111,6 +111,7 @@ func (d *Database) EnsureConversation(conversation *Conversation) error {
 	return nil
 }
 
+// DoesConversationExist verifies if a conversation exists in the database.
 func (d *Database) DoesConversationExist(conversationId int) bool {
 	var convo Conversation
 	err := d.db.Get(&convo, "SELECT id FROM conversations WHERE id = $1", conversationId)

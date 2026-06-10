@@ -135,7 +135,7 @@ func (s *Service) PostChat(message, modelName string, history []HistoryMessage, 
 
 // GenerateConversationTitle asks the smallest available AI model to generate a short title for a given message.
 func (s *Service) GenerateConversationTitle(message, model string) (string, error) {
-	titlePrompt := fmt.Sprintf("Can you generate a small conversation title for this message. Only answer with the title and following the format. Message: %s", message)
+	titlePrompt := fmt.Sprintf("Can you generate a small conversation title for this message. Message: %s", message)
 
 	var emptyHistory []HistoryMessage
 	answerBytes, err := s.PostChat(titlePrompt, model, emptyHistory, false)
@@ -151,7 +151,7 @@ func (s *Service) GenerateConversationTitle(message, model string) (string, erro
 	if len(answer.MessageBody) == 0 {
 		return "", fmt.Errorf("error while generating title: %w", errors.New("empty response when requested for a title"))
 	}
-	return answer.MessageBody[0].Body, nil
+	return answer.MessageBody, nil
 }
 
 // buildPath constructs a full URL for the Ollama API endpoints.

@@ -59,7 +59,7 @@ func (s *Service) GeneratePromptAnswer(prompt *dto.Prompt) (*dto.Answer, error) 
 		return nil, fmt.Errorf("ollama response doesn't fit format: %w", err)
 	}
 
-	if len(answer.MessageBody) > 0 && answer.MessageBody[0].Body != "" {
+	if len(answer.MessageBody) > 0 {
 		if err = s.InsertAssistantAnswer(rawAnswer, conversationId); err != nil {
 			return nil, err
 		}
@@ -124,6 +124,7 @@ func (s *Service) GetModels() ([]dto.Model, error) {
 	return dtoModelList, nil
 }
 
+// doesModelExist verifies that a model is downloaded.
 func (s *Service) doesModelExist(modelName string) (bool, error) {
 	modelList, err := s.ollamaService.GetModels()
 	if err != nil {
