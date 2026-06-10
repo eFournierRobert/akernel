@@ -48,32 +48,32 @@ func New() (*Service, error) {
 }
 
 // GetModels retrieves a list of available AI models from the Ollama service.
-func (oService *Service) GetModels() (*Models, error) {
+func (s *Service) GetModels() (*Models, error) {
 	res, err := http.Get(buildPath("/tags"))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get models from ollama: %w", err)
 	}
 	defer res.Body.Close()
 
 	var models Models
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get models from ollama: %w", err)
 	}
 
 	err = json.Unmarshal(body, &models)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get models from ollama: %w", err)
 	}
 
 	return &models, nil
 }
 
 // PostChat sends a message along with conversation history to the specified Ollama model and returns the generated response.
-func (oService *Service) PostChat(message, modelName string, history []HistoryMessage, thinking bool) ([]byte, error) {
+func (s *Service) PostChat(message, modelName string, history []HistoryMessage, thinking bool) ([]byte, error) {
 	systemPrompt := HistoryMessage{
 		Role:    "system",
-		Content: oService.systemPrompt,
+		Content: s.systemPrompt,
 	}
 	historyMessage := HistoryMessage{
 		Role:    "user",
@@ -99,12 +99,12 @@ func (oService *Service) PostChat(message, modelName string, history []HistoryMe
 
 	jsonBody, err := json.Marshal(&body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("post chat: %w", err)
 	}
 
 	response, err := http.Post(buildPath("/chat"), "application/json", bytes.NewBuffer(jsonBody))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("post chat: %w", err)
 	}
 	defer response.Body.Close()
 
@@ -115,7 +115,7 @@ func (oService *Service) PostChat(message, modelName string, history []HistoryMe
 			line := scanner.Bytes()
 			var answerChunk MessageResponse
 			if err := json.Unmarshal(line, &answerChunk); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("post chat: %w", err)
 			}
 			fullAnswer = append(fullAnswer, []byte(answerChunk.Response.Content)...)
 
@@ -128,26 +128,29 @@ func (oService *Service) PostChat(message, modelName string, history []HistoryMe
 	}
 	b, err := io.ReadAll(response.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("post chat: %w", err)
 	}
-	return nil, errors.New(string(b))
+	return nil, fmt.Errorf("post chat: %w", errors.New(string(b)))
 }
 
 // GenerateConversationTitle asks the smallest available AI model to generate a short title for a given message.
-func (oService *Service) GenerateConversationTitle(message, model string) (string, error) {
-	titlePrompt := fmt.Sprintf("Can you generate a small conversation title of maximum five words for this message. Only answer with the title. Message: %s", message)
+func (s *Service) GenerateConversationTitle(message, model string) (string, error) {
+	titlePrompt := fmt.Sprintf("Can you generate a small conversation title for this message. Only answer with the title and following the format. Message: %s", message)
 
 	var emptyHistory []HistoryMessage
-	answerBytes, err := oService.PostChat(titlePrompt, model, emptyHistory, false)
+	answerBytes, err := s.PostChat(titlePrompt, model, emptyHistory, false)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("error while generating title: %w", err)
 	}
 
 	var answer MessageFormat
 	if err = json.Unmarshal(answerBytes, &answer); err != nil {
-		return "", err
+		return "", fmt.Errorf("error while generating title: %w", err)
 	}
 
+	if len(answer.MessageBody) == 0 {
+		return "", fmt.Errorf("error while generating title: %w", errors.New("empty response when requested for a title"))
+	}
 	return answer.MessageBody[0].Body, nil
 }
 

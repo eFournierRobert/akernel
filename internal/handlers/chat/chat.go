@@ -3,9 +3,11 @@ package chat
 import (
 	"akernel/internal/database"
 	"akernel/internal/handlers/dto"
+	"akernel/internal/service"
 	"akernel/internal/service/chat"
 	"akernel/internal/service/ollama"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -45,8 +47,13 @@ func (h *Handler) Chat(w http.ResponseWriter, r *http.Request) {
 
 	answer, err := h.service.GeneratePromptAnswer(&prompt)
 	if err != nil {
-		fmt.Errorf("ERROR: %w", err)
-		w.WriteHeader(http.StatusInternalServerError) // temporary
+		log.Println(err)
+		switch {
+		case errors.Is(err, service.ErrInvalidConversation), errors.Is(err, service.ErrModelNotFound):
+			w.WriteHeader(http.StatusBadRequest)
+		default:
+			w.WriteHeader(http.StatusInternalServerError)
+		}
 		return
 	}
 
@@ -68,7 +75,7 @@ func (h *Handler) GetConversations(w http.ResponseWriter, r *http.Request) {
 
 	conversations, err := h.service.FetchConversations()
 	if err != nil {
-		log.Printf("ERROR: %s", err.Error())
+		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -91,7 +98,7 @@ func (h *Handler) GetModels(w http.ResponseWriter, r *http.Request) {
 
 	modelList, err := h.service.GetModels()
 	if err != nil {
-		fmt.Errorf("error: %w", err)
+		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

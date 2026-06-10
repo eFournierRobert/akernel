@@ -1,6 +1,10 @@
 package database
 
 import (
+	"database/sql"
+	"errors"
+	"fmt"
+
 	"github.com/adrg/xdg"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
@@ -52,7 +56,11 @@ func ConnectDB(isDev bool) (*Database, error) {
 // InsertMessage saves a message to the database and creates a new conversation if necessary.
 func (d *Database) InsertMessage(message *Message) error {
 	_, err := d.db.NamedExec("INSERT INTO messages (role, content, conversation_id, datetime) VALUES (:role, :content, :conversation_id, :datetime)", message)
-	return err
+	if err != nil {
+		return fmt.Errorf("insert message: %w", err)
+	}
+
+	return nil
 }
 
 // SelectMessagesOfConvo retrieves all messages for a specific conversation, ordered by date.
@@ -60,7 +68,7 @@ func (d *Database) SelectMessagesOfConvo(conversationId int) ([]Message, error) 
 	var messages []Message
 	err := d.db.Select(&messages, "SELECT role, content FROM messages WHERE conversation_id = $1 ORDER BY datetime ASC", conversationId)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("select messages of conversation: %w", err)
 	}
 	return messages, nil
 }
@@ -69,7 +77,11 @@ func (d *Database) SelectMessagesOfConvo(conversationId int) ([]Message, error) 
 func (d *Database) SelectConversations() ([]Conversation, error) {
 	var conversations []Conversation
 	err := d.db.Select(&conversations, "SELECT id, title FROM conversations")
-	return conversations, err
+	if err != nil {
+		return nil, fmt.Errorf("select conversations: %w", err)
+	}
+
+	return conversations, nil
 }
 
 // PopLastUserMessage removes the most recent message sent by the user in a specific conversation.
@@ -77,16 +89,34 @@ func (d *Database) PopLastUserMessage(conversationId int) error {
 	_, err := d.db.Exec(
 		"DELETE FROM messages WHERE id = (SELECT id FROM messages WHERE role = 'user' AND conversation_id = $1 ORDER BY datetime DESC LIMIT 1)",
 		conversationId)
-	return err
+	if err != nil {
+		return fmt.Errorf("pop last user message: %w", err)
+	}
+
+	return nil
 }
 
 // EnsureConversation ensures a conversation exists in the database and populates its details.
 func (d *Database) EnsureConversation(conversation *Conversation) error {
 	_, err := d.db.NamedExec("INSERT OR IGNORE INTO conversations (title) VALUES (:title)", conversation)
 	if err != nil {
-		return err
+		return fmt.Errorf("ensure conversation: %w", err)
 	}
 
 	err = d.db.Get(conversation, "SELECT id, title FROM conversations WHERE title = $1", conversation.Title)
-	return err
+	if err != nil {
+		return fmt.Errorf("ensure conversation: %w", err)
+	}
+
+	return nil
+}
+
+func (d *Database) DoesConversationExist(conversationId int) bool {
+	var convo Conversation
+	err := d.db.Get(&convo, "SELECT id FROM conversations WHERE id = $1", conversationId)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false
+	}
+
+	return convo.ID == conversationId
 }

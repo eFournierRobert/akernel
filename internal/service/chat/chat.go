@@ -3,9 +3,11 @@ package chat
 import (
 	"akernel/internal/database"
 	"akernel/internal/handlers/dto"
+	"akernel/internal/service"
 	"akernel/internal/service/ollama"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 )
 
@@ -17,16 +19,26 @@ type Service struct {
 
 // NewChatService initializes a new instance of the Chat Service.
 func NewChatService(database *database.Database, ollama *ollama.Service) *Service {
-	service := Service{
+	s := Service{
 		database:      database,
 		ollamaService: ollama,
 	}
 
-	return &service
+	return &s
 }
 
 // GeneratePromptAnswer takes a user prompt and generates an AI answer. Also creates a conversation if necessary.
 func (s *Service) GeneratePromptAnswer(prompt *dto.Prompt) (*dto.Answer, error) {
+	if modelIsValid, err := s.doesModelExist(prompt.Model); err != nil {
+		return nil, err
+	} else if !modelIsValid {
+		return nil, fmt.Errorf("asked for model %s: %w", prompt.Model, service.ErrModelNotFound)
+	}
+
+	if prompt.ConversationId < -1 || (prompt.ConversationId >= 1 && !s.database.DoesConversationExist(prompt.ConversationId)) {
+		return nil, fmt.Errorf("generate prompt answer: %w", service.ErrInvalidConversation)
+	}
+
 	conversationId, err := s.insertPrompt(prompt)
 	if err != nil {
 		return nil, err
@@ -37,14 +49,14 @@ func (s *Service) GeneratePromptAnswer(prompt *dto.Prompt) (*dto.Answer, error) 
 		return nil, err
 	}
 
-	rawAnswer, err := s.ollamaService.PostChat(prompt.Message, prompt.Model, history, true)
+	rawAnswer, err := s.ollamaService.PostChat(prompt.Message, prompt.Model, history[:len(history)-1], true)
 	if err != nil {
 		return nil, err
 	}
 
 	var answer ollama.MessageFormat
 	if err = json.Unmarshal(rawAnswer, &answer); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ollama response doesn't fit format: %w", err)
 	}
 
 	if len(answer.MessageBody) > 0 && answer.MessageBody[0].Body != "" {
@@ -110,6 +122,21 @@ func (s *Service) GetModels() ([]dto.Model, error) {
 	}
 
 	return dtoModelList, nil
+}
+
+func (s *Service) doesModelExist(modelName string) (bool, error) {
+	modelList, err := s.ollamaService.GetModels()
+	if err != nil {
+		return false, err
+	}
+
+	for _, model := range modelList.ModelList {
+		if model.Name == modelName {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 // insertPrompt saves a user's message to the database and returns the associated conversation ID.
