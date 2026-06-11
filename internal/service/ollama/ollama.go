@@ -3,6 +3,7 @@ package ollama
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -48,8 +49,14 @@ func New() (*Service, error) {
 }
 
 // GetModels retrieves a list of available AI models from the Ollama service.
-func (s *Service) GetModels() (*Models, error) {
-	res, err := http.Get(buildPath("/tags"))
+func (s *Service) GetModels(ctx context.Context) (*Models, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, buildPath("/tags"), nil)
+	if err != nil {
+		return nil, fmt.Errorf("get models from ollama: %w", err)
+	}
+
+	client := http.Client{}
+	res, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("get models from ollama: %w", err)
 	}
@@ -70,7 +77,7 @@ func (s *Service) GetModels() (*Models, error) {
 }
 
 // PostChat sends a message along with conversation history to the specified Ollama model and returns the generated response.
-func (s *Service) PostChat(message, modelName string, history []HistoryMessage, thinking bool) ([]byte, error) {
+func (s *Service) PostChat(ctx context.Context, message, modelName string, history []HistoryMessage, thinking bool) ([]byte, error) {
 	systemPrompt := HistoryMessage{
 		Role:    "system",
 		Content: s.systemPrompt,
@@ -102,7 +109,13 @@ func (s *Service) PostChat(message, modelName string, history []HistoryMessage, 
 		return nil, fmt.Errorf("post chat: %w", err)
 	}
 
-	response, err := http.Post(buildPath("/chat"), "application/json", bytes.NewBuffer(jsonBody))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, buildPath("/chat"), bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return nil, fmt.Errorf("post chat: %w", err)
+	}
+
+	client := http.Client{}
+	response, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("post chat: %w", err)
 	}
@@ -134,11 +147,11 @@ func (s *Service) PostChat(message, modelName string, history []HistoryMessage, 
 }
 
 // GenerateConversationTitle asks the smallest available AI model to generate a short title for a given message.
-func (s *Service) GenerateConversationTitle(message, model string) (string, error) {
+func (s *Service) GenerateConversationTitle(ctx context.Context, message, model string) (string, error) {
 	titlePrompt := fmt.Sprintf("Can you generate a small conversation title for this message. Message: %s", message)
 
 	var emptyHistory []HistoryMessage
-	answerBytes, err := s.PostChat(titlePrompt, model, emptyHistory, false)
+	answerBytes, err := s.PostChat(ctx, titlePrompt, model, emptyHistory, false)
 	if err != nil {
 		return "", fmt.Errorf("error while generating title: %w", err)
 	}
