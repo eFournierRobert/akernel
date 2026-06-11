@@ -5,6 +5,7 @@ import (
 	"akernel/internal/handlers/dto"
 	"akernel/internal/service"
 	"akernel/internal/service/ollama"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -28,8 +29,8 @@ func NewChatService(database *database.Database, ollama *ollama.Service) *Servic
 }
 
 // GeneratePromptAnswer takes a user prompt and generates an AI answer. Also creates a conversation if necessary.
-func (s *Service) GeneratePromptAnswer(prompt *dto.Prompt) (*dto.Answer, error) {
-	if modelIsValid, err := s.doesModelExist(prompt.Model); err != nil {
+func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) (*dto.Answer, error) {
+	if modelIsValid, err := s.doesModelExist(ctx, prompt.Model); err != nil {
 		return nil, err
 	} else if !modelIsValid {
 		return nil, fmt.Errorf("asked for model %s: %w", prompt.Model, service.ErrModelNotFound)
@@ -39,7 +40,7 @@ func (s *Service) GeneratePromptAnswer(prompt *dto.Prompt) (*dto.Answer, error) 
 		return nil, fmt.Errorf("generate prompt answer: %w", service.ErrInvalidConversation)
 	}
 
-	conversationId, err := s.insertPrompt(prompt)
+	conversationId, err := s.insertPrompt(ctx, prompt)
 	if err != nil {
 		return nil, err
 	}
@@ -49,8 +50,12 @@ func (s *Service) GeneratePromptAnswer(prompt *dto.Prompt) (*dto.Answer, error) 
 		return nil, err
 	}
 
-	rawAnswer, err := s.ollamaService.PostChat(prompt.Message, prompt.Model, history[:len(history)-1], true)
-	if err != nil {
+	rawAnswer, err := s.ollamaService.PostChat(ctx, prompt.Message, prompt.Model, history[:len(history)-1], true)
+	if err != nil || ctx.Err() != nil {
+		if err = s.database.PopLastUserMessage(conversationId); err != nil {
+			return nil, err
+		}
+
 		return nil, err
 	}
 
@@ -106,8 +111,8 @@ func (s *Service) FetchConversations() ([]dto.Conversation, error) {
 }
 
 // GetModels returns a list of available AI models.
-func (s *Service) GetModels() ([]dto.Model, error) {
-	modelList, err := s.ollamaService.GetModels()
+func (s *Service) GetModels(ctx context.Context) ([]dto.Model, error) {
+	modelList, err := s.ollamaService.GetModels(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -125,8 +130,8 @@ func (s *Service) GetModels() ([]dto.Model, error) {
 }
 
 // doesModelExist verifies that a model is downloaded.
-func (s *Service) doesModelExist(modelName string) (bool, error) {
-	modelList, err := s.ollamaService.GetModels()
+func (s *Service) doesModelExist(ctx context.Context, modelName string) (bool, error) {
+	modelList, err := s.ollamaService.GetModels(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -141,7 +146,7 @@ func (s *Service) doesModelExist(modelName string) (bool, error) {
 }
 
 // insertPrompt saves a user's message to the database and returns the associated conversation ID.
-func (s *Service) insertPrompt(prompt *dto.Prompt) (int, error) {
+func (s *Service) insertPrompt(ctx context.Context, prompt *dto.Prompt) (int, error) {
 	message := database.Message{
 		Role:           "user",
 		Content:        prompt.Message,
@@ -150,7 +155,7 @@ func (s *Service) insertPrompt(prompt *dto.Prompt) (int, error) {
 	}
 
 	if message.ConversationId == -1 {
-		title, err := s.ollamaService.GenerateConversationTitle(message.Content, prompt.Model)
+		title, err := s.ollamaService.GenerateConversationTitle(ctx, message.Content, prompt.Model)
 		if err != nil {
 			return 0, err
 		}

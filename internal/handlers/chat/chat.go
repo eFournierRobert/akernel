@@ -45,7 +45,7 @@ func (h *Handler) Chat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	answer, err := h.service.GeneratePromptAnswer(&prompt)
+	answer, err := h.service.GeneratePromptAnswer(r.Context(), &prompt)
 	if err != nil {
 		log.Println(err)
 		switch {
@@ -96,7 +96,7 @@ func (h *Handler) GetConversations(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) GetModels(w http.ResponseWriter, r *http.Request) {
 	log.Println(r.URL.Path)
 
-	modelList, err := h.service.GetModels()
+	modelList, err := h.service.GetModels(r.Context())
 	if err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
