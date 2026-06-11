@@ -8,10 +8,10 @@ import (
 	"akernel/internal/service/ollama"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 )
 
 // Handler manages HTTP requests for chat operations
@@ -59,7 +59,7 @@ func (h *Handler) Chat(w http.ResponseWriter, r *http.Request) {
 
 	jsonResponse, err := json.Marshal(answer)
 	if err != nil {
-		fmt.Errorf("ERROR: %w", err)
+		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -82,7 +82,7 @@ func (h *Handler) GetConversations(w http.ResponseWriter, r *http.Request) {
 
 	convoJson, err := json.Marshal(conversations)
 	if err != nil {
-		log.Printf("ERROR: %s", err.Error())
+		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -105,7 +105,7 @@ func (h *Handler) GetModels(w http.ResponseWriter, r *http.Request) {
 
 	modelsJson, err := json.Marshal(modelList)
 	if err != nil {
-		fmt.Errorf("error: %w", err)
+		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -113,4 +113,29 @@ func (h *Handler) GetModels(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(modelsJson)
+}
+
+// DeleteConversation deletes a conversation and messages by its ID.
+func (h *Handler) DeleteConversation(w http.ResponseWriter, r *http.Request) {
+	log.Println(r.URL.Path)
+
+	convoIdStr := r.PathValue("id")
+	convoId, err := strconv.Atoi(convoIdStr)
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if err = h.service.DeleteConversation(convoId); err != nil {
+		log.Println(err)
+		if errors.Is(err, service.ErrConversationDoesNotExist) {
+			w.WriteHeader(http.StatusNotFound)
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }

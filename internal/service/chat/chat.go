@@ -6,7 +6,6 @@ import (
 	"akernel/internal/service"
 	"akernel/internal/service/ollama"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -50,7 +49,7 @@ func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) 
 		return nil, err
 	}
 
-	rawAnswer, err := s.ollamaService.PostChat(ctx, prompt.Message, prompt.Model, history[:len(history)-1], true)
+	answer, err := s.ollamaService.PostChat(ctx, prompt.Model, history, true)
 	if err != nil || ctx.Err() != nil {
 		if err = s.database.PopLastUserMessage(conversationId); err != nil {
 			return nil, err
@@ -59,17 +58,12 @@ func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) 
 		return nil, err
 	}
 
-	var answer ollama.MessageFormat
-	if err = json.Unmarshal(rawAnswer, &answer); err != nil {
-		return nil, fmt.Errorf("ollama response doesn't fit format: %w", err)
-	}
-
-	if len(answer.MessageBody) > 0 {
-		if err = s.InsertAssistantAnswer(rawAnswer, conversationId); err != nil {
+	if len(answer) > 0 {
+		if err = s.InsertAssistantAnswer(answer, conversationId); err != nil {
 			return nil, err
 		}
 		return &dto.Answer{
-			Message:        answer,
+			Message:        string(answer),
 			ConversationId: conversationId,
 		}, nil
 	}
@@ -97,6 +91,10 @@ func (s *Service) FetchConversations() ([]dto.Conversation, error) {
 	conversations, err := s.database.SelectConversations()
 	if err != nil {
 		return nil, err
+	}
+
+	if conversations == nil {
+		return []dto.Conversation{}, nil
 	}
 
 	var conversationDto []dto.Conversation
@@ -127,6 +125,18 @@ func (s *Service) GetModels(ctx context.Context) ([]dto.Model, error) {
 	}
 
 	return dtoModelList, nil
+}
+
+// DeleteConversation deletes a conversation and the related messages.
+func (s *Service) DeleteConversation(conversationId int) error {
+	rowsAffected, err := s.database.CascadeDeleteConversation(conversationId)
+	if err != nil {
+		return err
+	} else if rowsAffected == 0 {
+		return fmt.Errorf("generate prompt answer: %w", service.ErrConversationDoesNotExist)
+	}
+
+	return nil
 }
 
 // doesModelExist verifies that a model is downloaded.

@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS messages (
     content TEXT,
     datetime INTEGER,
     conversation_id INTEGER,
-    FOREIGN KEY (conversation_id) REFERENCES conversations(id)
+    CONSTRAINT fk_converation_message
+    FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
 );
 
 -- +goose Down

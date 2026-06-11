@@ -1,9 +1,5 @@
 package dto
 
-import (
-	"akernel/internal/service/ollama"
-)
-
 // Prompt is the DTO for a received prompt.
 type Prompt struct {
 	Model          string `json:"model"`
@@ -13,8 +9,8 @@ type Prompt struct {
 
 // Answer is the DTO for an AI-generated answer.
 type Answer struct {
-	ConversationId int                  `json:"conversationId"`
-	Message        ollama.MessageFormat `json:"message"`
+	ConversationId int    `json:"conversationId"`
+	Message        string `json:"message"`
 }
 
 // Conversation is the DTO for a conversation.

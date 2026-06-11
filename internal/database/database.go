@@ -47,6 +47,10 @@ func ConnectDB(isDev bool) (*Database, error) {
 		return nil, err
 	}
 
+	if _, err = db.Exec("PRAGMA foreign_keys = ON"); err != nil {
+		return nil, err
+	}
+
 	database := Database{
 		db: db,
 	}
@@ -120,4 +124,19 @@ func (d *Database) DoesConversationExist(conversationId int) bool {
 	}
 
 	return convo.ID == conversationId
+}
+
+// CascadeDeleteConversation does a cascade delete on a conversation in the database.
+func (d *Database) CascadeDeleteConversation(conversationId int) (int, error) {
+	res, err := d.db.Exec("DELETE FROM conversations WHERE id = $1", conversationId)
+	if err != nil {
+		return 0, fmt.Errorf("delete conversation: %w", err)
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("delete conversation: %w", err)
+	}
+
+	return int(rowsAffected), nil
 }
