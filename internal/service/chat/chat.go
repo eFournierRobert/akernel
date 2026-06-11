@@ -6,7 +6,6 @@ import (
 	"akernel/internal/service"
 	"akernel/internal/service/ollama"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -50,7 +49,7 @@ func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) 
 		return nil, err
 	}
 
-	rawAnswer, err := s.ollamaService.PostChat(ctx, prompt.Message, prompt.Model, history[:len(history)-1], true)
+	answer, err := s.ollamaService.PostChat(ctx, prompt.Model, history, true)
 	if err != nil || ctx.Err() != nil {
 		if err = s.database.PopLastUserMessage(conversationId); err != nil {
 			return nil, err
@@ -59,17 +58,12 @@ func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) 
 		return nil, err
 	}
 
-	var answer ollama.MessageFormat
-	if err = json.Unmarshal(rawAnswer, &answer); err != nil {
-		return nil, fmt.Errorf("ollama response doesn't fit format: %w", err)
-	}
-
-	if len(answer.MessageBody) > 0 {
-		if err = s.InsertAssistantAnswer(rawAnswer, conversationId); err != nil {
+	if len(answer) > 0 {
+		if err = s.InsertAssistantAnswer(answer, conversationId); err != nil {
 			return nil, err
 		}
 		return &dto.Answer{
-			Message:        answer,
+			Message:        string(answer),
 			ConversationId: conversationId,
 		}, nil
 	}

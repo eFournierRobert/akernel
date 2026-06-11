@@ -12,7 +12,6 @@ import (
 	"os"
 
 	"github.com/adrg/xdg"
-	"github.com/google/jsonschema-go/jsonschema"
 )
 
 // ollamaBasePath is the base URL for the Ollama API.
@@ -77,25 +76,17 @@ func (s *Service) GetModels(ctx context.Context) (*Models, error) {
 }
 
 // PostChat sends a message along with conversation history to the specified Ollama model and returns the generated response.
-func (s *Service) PostChat(ctx context.Context, message, modelName string, history []HistoryMessage, thinking bool) ([]byte, error) {
+func (s *Service) PostChat(ctx context.Context, modelName string, history []HistoryMessage, thinking bool) ([]byte, error) {
 	systemPrompt := HistoryMessage{
 		Role:    "system",
 		Content: s.systemPrompt,
 	}
-	historyMessage := HistoryMessage{
-		Role:    "user",
-		Content: message,
-	}
 
 	fullHistory := []HistoryMessage{systemPrompt}
 	fullHistory = append(fullHistory, history...)
-	fullHistory = append(fullHistory, historyMessage)
-
-	schema, err := jsonschema.For[MessageFormat](&jsonschema.ForOptions{})
 	body := Message{
 		Model:     modelName,
 		Messages:  fullHistory,
-		Format:    schema,
 		Think:     thinking,
 		KeepAlive: "5m",
 		Stream:    false,
@@ -150,21 +141,17 @@ func (s *Service) PostChat(ctx context.Context, message, modelName string, histo
 func (s *Service) GenerateConversationTitle(ctx context.Context, message, model string) (string, error) {
 	titlePrompt := fmt.Sprintf("Can you generate a small conversation title for this message. Message: %s", message)
 
-	var emptyHistory []HistoryMessage
-	answerBytes, err := s.PostChat(ctx, titlePrompt, model, emptyHistory, false)
+	history := []HistoryMessage{HistoryMessage{Role: "user", Content: titlePrompt}}
+
+	answer, err := s.PostChat(ctx, model, history, false)
 	if err != nil {
 		return "", fmt.Errorf("error while generating title: %w", err)
 	}
 
-	var answer MessageFormat
-	if err = json.Unmarshal(answerBytes, &answer); err != nil {
-		return "", fmt.Errorf("error while generating title: %w", err)
-	}
-
-	if len(answer.MessageBody) == 0 {
+	if len(answer) == 0 {
 		return "", fmt.Errorf("error while generating title: %w", errors.New("empty response when requested for a title"))
 	}
-	return answer.MessageBody, nil
+	return string(answer), nil
 }
 
 // buildPath constructs a full URL for the Ollama API endpoints.
