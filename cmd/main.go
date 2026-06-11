@@ -30,6 +30,7 @@ func main() {
 	mux.HandleFunc("POST /chat", chatHandler.Chat)
 	mux.HandleFunc("GET /conversation", chatHandler.GetConversations)
 	mux.HandleFunc("GET /models", chatHandler.GetModels)
+	mux.HandleFunc("DELETE /conversation/{id}", chatHandler.DeleteConversation)
 
 	log.Println("Listening on localhost:8080")
 	err = http.ListenAndServe("localhost:8080", mux)

@@ -129,6 +129,18 @@ func (s *Service) GetModels(ctx context.Context) ([]dto.Model, error) {
 	return dtoModelList, nil
 }
 
+// DeleteConversation deletes a conversation and the related messages.
+func (s *Service) DeleteConversation(conversationId int) error {
+	rowsAffected, err := s.database.CascadeDeleteConversation(conversationId)
+	if err != nil {
+		return err
+	} else if rowsAffected == 0 {
+		return fmt.Errorf("generate prompt answer: %w", service.ErrConversationDoesNotExist)
+	}
+
+	return nil
+}
+
 // doesModelExist verifies that a model is downloaded.
 func (s *Service) doesModelExist(ctx context.Context, modelName string) (bool, error) {
 	modelList, err := s.ollamaService.GetModels(ctx)
