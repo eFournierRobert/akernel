@@ -93,6 +93,10 @@ func (s *Service) FetchConversations() ([]dto.Conversation, error) {
 		return nil, err
 	}
 
+	if conversations == nil {
+		return []dto.Conversation{}, nil
+	}
+
 	var conversationDto []dto.Conversation
 	for _, c := range conversations {
 		conversationDto = append(conversationDto, dto.Conversation{
