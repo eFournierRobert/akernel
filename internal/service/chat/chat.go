@@ -139,6 +139,7 @@ func (s *Service) DeleteConversation(conversationId int) error {
 	return nil
 }
 
+// GetConversation gets the conversation and returns an array of Message DTO.
 func (s *Service) GetConversation(conversationId int) ([]dto.Message, error) {
 	if !s.database.DoesConversationExist(conversationId) {
 		return nil, fmt.Errorf("get full conversation: %w", service.ErrConversationDoesNotExist)

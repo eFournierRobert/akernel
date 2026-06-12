@@ -141,6 +141,7 @@ func (d *Database) CascadeDeleteConversation(conversationId int) (int, error) {
 	return int(rowsAffected), nil
 }
 
+// SelectFullConversation fetches all the messages of a conversation by its ID.
 func (d *Database) SelectFullConversation(conversationId int) ([]Message, error) {
 	var messages []Message
 	err := d.db.Select(&messages, "SELECT role, content FROM messages WHERE conversation_id = $1 ORDER BY datetime ASC", conversationId)

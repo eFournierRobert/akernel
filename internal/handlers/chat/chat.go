@@ -140,6 +140,7 @@ func (h *Handler) DeleteConversation(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// GetConversation gets the full conversation and returns it in JSON.
 func (h *Handler) GetConversation(w http.ResponseWriter, r *http.Request) {
 	log.Println(r.URL.Path)
 
