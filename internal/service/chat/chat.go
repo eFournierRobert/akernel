@@ -3,24 +3,30 @@ package chat
 import (
 	"akernel/internal/handlers/dto"
 	"akernel/internal/repository"
+	"akernel/internal/repository/conversation"
+	"akernel/internal/repository/message"
 	"akernel/internal/service"
 	"akernel/internal/service/ollama"
 	"context"
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/jmoiron/sqlx"
 )
 
 // Service handles the business logic for chat operations, acting as an intermediary between the handlers and the database.
 type Service struct {
-	database      *repository.Database
-	ollamaService *ollama.Service
+	messageRepo   message.Repository
+	convoRepo     conversation.Repository
+	ollamaService ollama.Service
 }
 
 // NewChatService initializes a new instance of the Chat Service.
-func NewChatService(database *repository.Database, ollama *ollama.Service) *Service {
+func NewChatService(db *sqlx.DB, ollama ollama.Service) *Service {
 	s := Service{
-		database:      database,
+		messageRepo:   message.New(db),
+		convoRepo:     conversation.New(db),
 		ollamaService: ollama,
 	}
 
@@ -35,7 +41,7 @@ func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) 
 		return nil, fmt.Errorf("asked for model %s: %w", prompt.Model, service.ErrModelNotFound)
 	}
 
-	if prompt.ConversationId < -1 || (prompt.ConversationId >= 1 && !s.database.DoesConversationExist(prompt.ConversationId)) {
+	if prompt.ConversationId < -1 || (prompt.ConversationId >= 1 && !s.convoRepo.DoesConversationExist(prompt.ConversationId)) {
 		return nil, fmt.Errorf("generate prompt answer: %w", service.ErrInvalidConversation)
 	}
 
@@ -51,7 +57,7 @@ func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) 
 
 	answer, err := s.ollamaService.PostChat(ctx, prompt.Model, history, true)
 	if err != nil || ctx.Err() != nil {
-		if err = s.database.PopLastUserMessage(conversationId); err != nil {
+		if err = s.messageRepo.PopLastUserMessage(conversationId); err != nil {
 			return nil, err
 		}
 
@@ -68,7 +74,7 @@ func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) 
 		}, nil
 	}
 
-	if err = s.database.PopLastUserMessage(conversationId); err != nil {
+	if err = s.messageRepo.PopLastUserMessage(conversationId); err != nil {
 		return nil, err
 	}
 	return nil, errors.New("received empty answer from ollama")
@@ -83,69 +89,16 @@ func (s *Service) InsertAssistantAnswer(answer []byte, conversationId int) error
 		DateTime:       time.Now(),
 	}
 
-	return s.database.InsertMessage(&message)
-}
-
-// FetchConversations retrieves a list of all conversations available in the database and returns them as DTOs.
-func (s *Service) FetchConversations() ([]dto.Conversation, error) {
-	conversations, err := s.database.SelectConversations()
-	if err != nil {
-		return nil, err
-	}
-
-	if conversations == nil {
-		return []dto.Conversation{}, nil
-	}
-
-	var conversationDto []dto.Conversation
-	for _, c := range conversations {
-		conversationDto = append(conversationDto, dto.Conversation{
-			Id:    c.ID,
-			Title: c.Title,
-		})
-	}
-
-	return conversationDto, nil
-}
-
-// GetModels returns a list of available AI models.
-func (s *Service) GetModels(ctx context.Context) ([]dto.Model, error) {
-	modelList, err := s.ollamaService.GetModels(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	var dtoModelList []dto.Model
-	for _, model := range modelList.ModelList {
-		dtoModelList = append(dtoModelList, dto.Model{
-			Name:  model.Name,
-			Model: model.Model,
-			Size:  convertSizeToGB(model.Size),
-		})
-	}
-
-	return dtoModelList, nil
-}
-
-// DeleteConversation deletes a conversation and the related messages.
-func (s *Service) DeleteConversation(conversationId int) error {
-	rowsAffected, err := s.database.CascadeDeleteConversation(conversationId)
-	if err != nil {
-		return err
-	} else if rowsAffected == 0 {
-		return fmt.Errorf("delete conversation: %w", service.ErrConversationDoesNotExist)
-	}
-
-	return nil
+	return s.messageRepo.InsertMessage(&message)
 }
 
 // GetConversation gets the conversation and returns an array of Message DTO.
 func (s *Service) GetConversation(conversationId int) ([]dto.Message, error) {
-	if !s.database.DoesConversationExist(conversationId) {
+	if !s.convoRepo.DoesConversationExist(conversationId) {
 		return nil, fmt.Errorf("get full conversation: %w", service.ErrConversationDoesNotExist)
 	}
 
-	messages, err := s.database.SelectFullConversation(conversationId)
+	messages, err := s.messageRepo.SelectFullConversation(conversationId)
 	if err != nil {
 		return nil, err
 	}
@@ -199,13 +152,13 @@ func (s *Service) insertPrompt(ctx context.Context, prompt *dto.Prompt) (int, er
 		newConversation := repository.Conversation{
 			Title: title,
 		}
-		if err = s.database.EnsureConversation(&newConversation); err != nil {
+		if err = s.convoRepo.EnsureConversation(&newConversation); err != nil {
 			return 0, err
 		}
 		message.ConversationId = newConversation.ID
 	}
 
-	if err := s.database.InsertMessage(&message); err != nil {
+	if err := s.messageRepo.InsertMessage(&message); err != nil {
 		return 0, err
 	}
 
@@ -214,7 +167,7 @@ func (s *Service) insertPrompt(ctx context.Context, prompt *dto.Prompt) (int, er
 
 // fetchConversationHistory retrieves all messages for a conversation and converts them into the history format required by Ollama.
 func (s *Service) fetchConversationHistory(conversationId int) ([]ollama.HistoryMessage, error) {
-	messages, err := s.database.SelectMessagesOfConvo(conversationId)
+	messages, err := s.messageRepo.SelectMessagesOfConvo(conversationId)
 	if err != nil {
 		return nil, err
 	}
@@ -228,9 +181,4 @@ func (s *Service) fetchConversationHistory(conversationId int) ([]ollama.History
 	}
 
 	return history, nil
-}
-
-// convertSizeToGB converts a model size from bytes to gigabytes.
-func convertSizeToGB(bytes int) float32 {
-	return float32(bytes) / float32(1073741824)
 }
