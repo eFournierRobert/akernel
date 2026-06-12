@@ -1,0 +1,61 @@
+package message
+
+import (
+	"akernel/internal/repository"
+	"fmt"
+
+	"github.com/jmoiron/sqlx"
+)
+
+type Repository struct {
+	db *sqlx.DB
+}
+
+func New(db *sqlx.DB) Repository {
+	return Repository{
+		db,
+	}
+}
+
+// InsertMessage saves a message to the database and creates a new conversation if necessary.
+func (d *Repository) InsertMessage(message *repository.Message) error {
+	_, err := d.db.NamedExec("INSERT INTO messages (role, content, conversation_id, datetime) VALUES (:role, :content, :conversation_id, :datetime)", message)
+	if err != nil {
+		return fmt.Errorf("insert message: %w", err)
+	}
+
+	return nil
+}
+
+// SelectMessagesOfConvo retrieves all messages for a specific conversation, ordered by date.
+func (d *Repository) SelectMessagesOfConvo(conversationId int) ([]repository.Message, error) {
+	var messages []repository.Message
+	err := d.db.Select(&messages, "SELECT role, content FROM messages WHERE conversation_id = $1 ORDER BY datetime ASC", conversationId)
+	if err != nil {
+		return nil, fmt.Errorf("select messages of conversation: %w", err)
+	}
+	return messages, nil
+}
+
+// PopLastUserMessage removes the most recent message sent by the user in a specific conversation.
+func (d *Repository) PopLastUserMessage(conversationId int) error {
+	_, err := d.db.Exec(
+		"DELETE FROM messages WHERE id = (SELECT id FROM messages WHERE role = 'user' AND conversation_id = $1 ORDER BY datetime DESC LIMIT 1)",
+		conversationId)
+	if err != nil {
+		return fmt.Errorf("pop last user message: %w", err)
+	}
+
+	return nil
+}
+
+// SelectFullConversation fetches all the messages of a conversation by its ID.
+func (d *Repository) SelectFullConversation(conversationId int) ([]repository.Message, error) {
+	var messages []repository.Message
+	err := d.db.Select(&messages, "SELECT role, content FROM messages WHERE conversation_id = $1 ORDER BY datetime ASC", conversationId)
+	if err != nil {
+		return nil, fmt.Errorf("get full conversation: %w", err)
+	}
+
+	return messages, nil
+}
