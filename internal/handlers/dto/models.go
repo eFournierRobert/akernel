@@ -25,3 +25,8 @@ type Model struct {
 	Model string  `json:"model"`
 	Size  float32 `json:"size"`
 }
+
+type Message struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}

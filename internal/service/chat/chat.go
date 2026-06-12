@@ -133,10 +133,35 @@ func (s *Service) DeleteConversation(conversationId int) error {
 	if err != nil {
 		return err
 	} else if rowsAffected == 0 {
-		return fmt.Errorf("generate prompt answer: %w", service.ErrConversationDoesNotExist)
+		return fmt.Errorf("delete conversation: %w", service.ErrConversationDoesNotExist)
 	}
 
 	return nil
+}
+
+func (s *Service) GetConversation(conversationId int) ([]dto.Message, error) {
+	if !s.database.DoesConversationExist(conversationId) {
+		return nil, fmt.Errorf("get full conversation: %w", service.ErrConversationDoesNotExist)
+	}
+
+	messages, err := s.database.SelectFullConversation(conversationId)
+	if err != nil {
+		return nil, err
+	}
+
+	var messagesDto []dto.Message
+	if messages != nil {
+		for _, m := range messages {
+			messagesDto = append(messagesDto, dto.Message{
+				Role:    m.Role,
+				Content: m.Content,
+			})
+		}
+	} else {
+		messagesDto = []dto.Message{}
+	}
+
+	return messagesDto, nil
 }
 
 // doesModelExist verifies that a model is downloaded.
