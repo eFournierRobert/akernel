@@ -1,8 +1,8 @@
 package main
 
 import (
-	"akernel/internal/database"
 	"akernel/internal/handlers/chat"
+	"akernel/internal/repository"
 	"akernel/internal/service/ollama"
 	"flag"
 	"log"
@@ -19,7 +19,7 @@ func main() {
 		log.Fatalln(err.Error())
 	}
 
-	db, err := database.ConnectDB(*isDev)
+	db, err := repository.ConnectDB(*isDev)
 	if err != nil {
 		log.Fatalln(err.Error())
 	}

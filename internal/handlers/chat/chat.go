@@ -1,8 +1,8 @@
 package chat
 
 import (
-	"akernel/internal/database"
 	"akernel/internal/handlers/dto"
+	"akernel/internal/repository"
 	"akernel/internal/service"
 	"akernel/internal/service/chat"
 	"akernel/internal/service/ollama"
@@ -20,7 +20,7 @@ type Handler struct {
 }
 
 // New creates a new instance of Handler with the required services.
-func New(ollamaService *ollama.Service, database *database.Database) *Handler {
+func New(ollamaService *ollama.Service, database *repository.Database) *Handler {
 	chatService := chat.NewChatService(database, ollamaService)
 
 	return &Handler{

@@ -1,8 +1,8 @@
 package chat
 
 import (
-	"akernel/internal/database"
 	"akernel/internal/handlers/dto"
+	"akernel/internal/repository"
 	"akernel/internal/service"
 	"akernel/internal/service/ollama"
 	"context"
@@ -13,12 +13,12 @@ import (
 
 // Service handles the business logic for chat operations, acting as an intermediary between the handlers and the database.
 type Service struct {
-	database      *database.Database
+	database      *repository.Database
 	ollamaService *ollama.Service
 }
 
 // NewChatService initializes a new instance of the Chat Service.
-func NewChatService(database *database.Database, ollama *ollama.Service) *Service {
+func NewChatService(database *repository.Database, ollama *ollama.Service) *Service {
 	s := Service{
 		database:      database,
 		ollamaService: ollama,
@@ -76,7 +76,7 @@ func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) 
 
 // InsertAssistantAnswer saves the AI's response to the database for a specific conversation.
 func (s *Service) InsertAssistantAnswer(answer []byte, conversationId int) error {
-	message := database.Message{
+	message := repository.Message{
 		Role:           "assistant",
 		Content:        string(answer),
 		ConversationId: conversationId,
@@ -183,7 +183,7 @@ func (s *Service) doesModelExist(ctx context.Context, modelName string) (bool, e
 
 // insertPrompt saves a user's message to the database and returns the associated conversation ID.
 func (s *Service) insertPrompt(ctx context.Context, prompt *dto.Prompt) (int, error) {
-	message := database.Message{
+	message := repository.Message{
 		Role:           "user",
 		Content:        prompt.Message,
 		ConversationId: prompt.ConversationId,
@@ -196,7 +196,7 @@ func (s *Service) insertPrompt(ctx context.Context, prompt *dto.Prompt) (int, er
 			return 0, err
 		}
 
-		newConversation := database.Conversation{
+		newConversation := repository.Conversation{
 			Title: title,
 		}
 		if err = s.database.EnsureConversation(&newConversation); err != nil {
