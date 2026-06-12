@@ -139,3 +139,38 @@ func (h *Handler) DeleteConversation(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 }
+
+// GetConversation gets the full conversation and returns it in JSON.
+func (h *Handler) GetConversation(w http.ResponseWriter, r *http.Request) {
+	log.Println(r.URL.Path)
+
+	convoIdStr := r.PathValue("id")
+	convoId, err := strconv.Atoi(convoIdStr)
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	messages, err := h.service.GetConversation(convoId)
+	if err != nil {
+		log.Println(err)
+		if errors.Is(err, service.ErrConversationDoesNotExist) {
+			w.WriteHeader(http.StatusNotFound)
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+		return
+	}
+
+	jsonMessages, err := json.Marshal(messages)
+	if err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(jsonMessages)
+}

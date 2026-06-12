@@ -25,3 +25,9 @@ type Model struct {
 	Model string  `json:"model"`
 	Size  float32 `json:"size"`
 }
+
+// Message is the DTO for a message.
+type Message struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}

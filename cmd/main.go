@@ -28,8 +28,9 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /chat", chatHandler.Chat)
-	mux.HandleFunc("GET /conversation", chatHandler.GetConversations)
 	mux.HandleFunc("GET /models", chatHandler.GetModels)
+	mux.HandleFunc("GET /conversation", chatHandler.GetConversations)
+	mux.HandleFunc("GET /conversation/{id}", chatHandler.GetConversation)
 	mux.HandleFunc("DELETE /conversation/{id}", chatHandler.DeleteConversation)
 
 	log.Println("Listening on localhost:8080")
