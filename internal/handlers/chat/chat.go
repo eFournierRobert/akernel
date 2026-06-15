@@ -2,7 +2,6 @@ package chat
 
 import (
 	"akernel/internal/handlers/dto"
-	"akernel/internal/repository"
 	"akernel/internal/service"
 	"akernel/internal/service/chat"
 	"akernel/internal/service/ollama"
@@ -12,6 +11,8 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+
+	"github.com/jmoiron/sqlx"
 )
 
 // Handler manages HTTP requests for chat operations
@@ -20,7 +21,7 @@ type Handler struct {
 }
 
 // New creates a new instance of Handler with the required services.
-func New(ollamaService *ollama.Service, database *repository.Database) *Handler {
+func New(ollamaService ollama.Service, database *sqlx.DB) *Handler {
 	chatService := chat.NewChatService(database, ollamaService)
 
 	return &Handler{
@@ -69,79 +70,8 @@ func (h *Handler) Chat(w http.ResponseWriter, r *http.Request) {
 	w.Write(jsonResponse)
 }
 
-// GetConversations retrieves a list of all available conversations for the user.
-func (h *Handler) GetConversations(w http.ResponseWriter, r *http.Request) {
-	log.Println(r.URL.Path)
-
-	conversations, err := h.service.FetchConversations()
-	if err != nil {
-		log.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	convoJson, err := json.Marshal(conversations)
-	if err != nil {
-		log.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(convoJson)
-}
-
-// GetModels retrieves a list of available AI models.
-func (h *Handler) GetModels(w http.ResponseWriter, r *http.Request) {
-	log.Println(r.URL.Path)
-
-	modelList, err := h.service.GetModels(r.Context())
-	if err != nil {
-		log.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	modelsJson, err := json.Marshal(modelList)
-	if err != nil {
-		log.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(modelsJson)
-}
-
-// DeleteConversation deletes a conversation and messages by its ID.
-func (h *Handler) DeleteConversation(w http.ResponseWriter, r *http.Request) {
-	log.Println(r.URL.Path)
-
-	convoIdStr := r.PathValue("id")
-	convoId, err := strconv.Atoi(convoIdStr)
-	if err != nil {
-		log.Println(err)
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	if err = h.service.DeleteConversation(convoId); err != nil {
-		log.Println(err)
-		if errors.Is(err, service.ErrConversationDoesNotExist) {
-			w.WriteHeader(http.StatusNotFound)
-		} else {
-			w.WriteHeader(http.StatusInternalServerError)
-		}
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-}
-
-// GetConversation gets the full conversation and returns it in JSON.
-func (h *Handler) GetConversation(w http.ResponseWriter, r *http.Request) {
+// GetFullConversation gets the full conversation and returns it in JSON.
+func (h *Handler) GetFullConversation(w http.ResponseWriter, r *http.Request) {
 	log.Println(r.URL.Path)
 
 	convoIdStr := r.PathValue("id")

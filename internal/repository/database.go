@@ -7,13 +7,8 @@ import (
 	"github.com/pressly/goose/v3"
 )
 
-// Database manages the persistence of conversations and messages.
-type Database struct {
-	db *sqlx.DB
-}
-
 // ConnectDB connects to SQLite, runs migrations, and sets the database path based on the isDev flag.
-func ConnectDB(isDev bool) (*Database, error) {
+func ConnectDB(isDev bool) (*sqlx.DB, error) {
 	var dbPath string
 	if !isDev {
 		var err error
@@ -47,8 +42,5 @@ func ConnectDB(isDev bool) (*Database, error) {
 		return nil, err
 	}
 
-	database := Database{
-		db: db,
-	}
-	return &database, nil
+	return db, nil
 }
