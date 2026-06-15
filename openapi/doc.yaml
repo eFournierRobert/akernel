@@ -5,9 +5,17 @@ info:
   version: 1.0.0
 servers:
   - url: 'http://localhost:50500'
+tags:
+  - name: chat
+    description: Endpoints to prompt an AI model and manage messages.
+  - name: models
+    description: Endpoints to manage AI models.
+  - name: conversations
+    description: Endpoints to manage conversations.
 paths:
   /chat:
     post:
+      tags: [chat]
       summary: Post a new chat to get an AI response.
       requestBody:
         required: true
@@ -29,6 +37,33 @@ paths:
         "500":
           description: An server error occurred while treating the request.
 
+  /models:
+    get:
+      tags: [models]
+      summary: Get a list of the AI models present on the system.
+      responses:
+        "200":
+          description: A list of AI models on the system.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ModelArray"
+        "500":
+          description: An server error occurred while treating the request.
+
+  /conversation:
+    get:
+      tags: [conversations]
+      summary: Get a list of saved conversations
+      responses:
+        "200":
+          description: A list of conversations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConversationArray"
+        "500":
+          description: An server error occurred while treating the request.
 
 
 components:
@@ -49,4 +84,32 @@ components:
         conversationId:
           type: integer
         message:
+          type: string
+
+    ModelArray:
+      type: array
+      items:
+        $ref: "#/components/schemas/Model"
+
+    Model:
+      type: object
+      properties:
+        name:
+          type: string
+        model:
+          type: string
+        size:
+          type: number
+
+    ConversationArray:
+      type: array
+      items:
+        $ref: "#/components/schemas/Conversation"
+
+    Conversation:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
           type: string
