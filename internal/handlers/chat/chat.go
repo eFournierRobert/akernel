@@ -51,7 +51,7 @@ func (h *Handler) Chat(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		switch {
 		case errors.Is(err, service.ErrInvalidConversation), errors.Is(err, service.ErrModelNotFound):
-			w.WriteHeader(http.StatusBadRequest)
+			w.WriteHeader(http.StatusNotFound)
 		default:
 			w.WriteHeader(http.StatusInternalServerError)
 		}

@@ -1,0 +1,52 @@
+openapi: 3.1.0
+info:
+  title: Assistant Kernel API documentation
+  description: This is the official documentation of the assistant kernel API.
+  version: 1.0.0
+servers:
+  - url: 'http://localhost:50500'
+paths:
+  /chat:
+    post:
+      summary: Post a new chat to get an AI response.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Prompt"
+      responses:
+        "200":
+          description: AI responded in the request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Answer"
+        "400":
+          description: A bad request was made.
+        "404":
+          description: The conversation or the model was not found.
+        "500":
+          description: An server error occurred while treating the request.
+
+
+
+components:
+  schemas:
+    Prompt:
+      type: object
+      properties:
+        model:
+          type: string
+        message:
+          type: string
+        conversationId:
+          type: integer
+
+    Answer:
+      type: object
+      properties:
+        conversationId:
+          type: integer
+        message:
+          type: string
