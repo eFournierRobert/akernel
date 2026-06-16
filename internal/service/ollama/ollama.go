@@ -92,6 +92,7 @@ func (s *Service) PostChat(ctx context.Context, modelName string, history []Hist
 		Stream:    false,
 		Options: Options{
 			Temperature: 0.8,
+			NumCtx:      32000,
 		},
 	}
 
@@ -139,7 +140,7 @@ func (s *Service) PostChat(ctx context.Context, modelName string, history []Hist
 
 // GenerateConversationTitle asks the smallest available AI model to generate a short title for a given message.
 func (s *Service) GenerateConversationTitle(ctx context.Context, message, model string) (string, error) {
-	titlePrompt := fmt.Sprintf("Can you generate a small conversation title for this message. Message: %s", message)
+	titlePrompt := fmt.Sprintf("Generate a small conversation title for this message. Do not make propositions. Just answer with the title. Message: %s", message)
 
 	history := []HistoryMessage{HistoryMessage{Role: "user", Content: titlePrompt}}
 
