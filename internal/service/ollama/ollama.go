@@ -136,7 +136,7 @@ func (s *Service) PostChat(ctx context.Context, modelName string, history []Hist
 func (s *Service) GenerateConversationTitle(ctx context.Context, message, model string) (string, error) {
 	titlePrompt := fmt.Sprintf("Generate a small conversation title for this message. Do not make propositions. Just answer with the title. Message: %s", message)
 
-	history := []HistoryMessage{HistoryMessage{Role: "user", Content: titlePrompt}}
+	history := []HistoryMessage{{Role: "user", Content: titlePrompt}}
 
 	answer, err := s.PostChat(ctx, model, history, false)
 	if err != nil {
