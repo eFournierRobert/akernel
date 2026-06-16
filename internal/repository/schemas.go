@@ -9,6 +9,7 @@ type Message struct {
 	Content        string    `db:"content"`
 	DateTime       time.Time `db:"datetime"`
 	ConversationId int       `db:"conversation_id"`
+	TokenCount     int       `db:"token_count"`
 }
 
 // Conversation represents a conversation thread with a title.

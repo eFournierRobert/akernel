@@ -64,12 +64,12 @@ func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) 
 		return nil, err
 	}
 
-	if len(answer) > 0 {
-		if err = s.InsertAssistantAnswer(answer, conversationId); err != nil {
+	if len(answer.Response.Content) > 0 {
+		if err = s.InsertAssistantAnswer(answer.Response.Content, answer.Response.TokenCount, conversationId); err != nil {
 			return nil, err
 		}
 		return &dto.Answer{
-			Message:        string(answer),
+			Message:        answer.Response.Content,
 			ConversationId: conversationId,
 		}, nil
 	}
@@ -81,15 +81,16 @@ func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) 
 }
 
 // InsertAssistantAnswer saves the AI's response to the database for a specific conversation.
-func (s *Service) InsertAssistantAnswer(answer []byte, conversationId int) error {
-	message := repository.Message{
+func (s *Service) InsertAssistantAnswer(answer string, tokenCount, conversationId int) error {
+	m := repository.Message{
 		Role:           "assistant",
-		Content:        string(answer),
+		Content:        answer,
 		ConversationId: conversationId,
 		DateTime:       time.Now(),
+		TokenCount:     tokenCount,
 	}
 
-	return s.messageRepo.InsertMessage(&message)
+	return s.messageRepo.InsertMessage(&m)
 }
 
 // GetConversation gets the conversation and returns an array of Message DTO.
@@ -136,15 +137,15 @@ func (s *Service) doesModelExist(ctx context.Context, modelName string) (bool, e
 
 // insertPrompt saves a user's message to the database and returns the associated conversation ID.
 func (s *Service) insertPrompt(ctx context.Context, prompt *dto.Prompt) (int, error) {
-	message := repository.Message{
+	m := repository.Message{
 		Role:           "user",
 		Content:        prompt.Message,
 		ConversationId: prompt.ConversationId,
 		DateTime:       time.Now(),
 	}
 
-	if message.ConversationId == -1 {
-		title, err := s.ollamaService.GenerateConversationTitle(ctx, message.Content, prompt.Model)
+	if m.ConversationId == -1 {
+		title, err := s.ollamaService.GenerateConversationTitle(ctx, m.Content, prompt.Model)
 		if err != nil {
 			return 0, err
 		}
@@ -155,14 +156,14 @@ func (s *Service) insertPrompt(ctx context.Context, prompt *dto.Prompt) (int, er
 		if err = s.convoRepo.EnsureConversation(&newConversation); err != nil {
 			return 0, err
 		}
-		message.ConversationId = newConversation.ID
+		m.ConversationId = newConversation.ID
 	}
 
-	if err := s.messageRepo.InsertMessage(&message); err != nil {
+	if err := s.messageRepo.InsertMessage(&m); err != nil {
 		return 0, err
 	}
 
-	return message.ConversationId, nil
+	return m.ConversationId, nil
 }
 
 // fetchConversationHistory retrieves all messages for a conversation and converts them into the history format required by Ollama.
@@ -173,10 +174,10 @@ func (s *Service) fetchConversationHistory(conversationId int) ([]ollama.History
 	}
 
 	var history []ollama.HistoryMessage
-	for _, message := range messages {
+	for _, m := range messages {
 		history = append(history, ollama.HistoryMessage{
-			Role:    message.Role,
-			Content: message.Content,
+			Role:    m.Role,
+			Content: m.Content,
 		})
 	}
 

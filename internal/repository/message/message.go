@@ -19,7 +19,7 @@ func New(db *sqlx.DB) Repository {
 
 // InsertMessage saves a message to the database and creates a new conversation if necessary.
 func (d *Repository) InsertMessage(message *repository.Message) error {
-	_, err := d.db.NamedExec("INSERT INTO messages (role, content, conversation_id, datetime) VALUES (:role, :content, :conversation_id, :datetime)", message)
+	_, err := d.db.NamedExec("INSERT INTO messages (role, content, conversation_id, datetime, token_count) VALUES (:role, :content, :conversation_id, :datetime, :token_count)", message)
 	if err != nil {
 		return fmt.Errorf("insert message: %w", err)
 	}
