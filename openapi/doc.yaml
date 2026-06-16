@@ -75,7 +75,6 @@ paths:
           schema:
             type: integer
             minimum: 1
-
       responses:
         "200":
           description: A list of messages in order.
@@ -99,7 +98,6 @@ paths:
           schema:
             type: integer
             minimum: 1
-
       responses:
         "200":
           description: Conversation was deleted.
