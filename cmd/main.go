@@ -37,8 +37,8 @@ func main() {
 	mux.HandleFunc("GET /conversation/{id}", chatHandler.GetFullConversation)
 	mux.HandleFunc("DELETE /conversation/{id}", conversationHandler.DeleteConversation)
 
-	log.Println("Listening on localhost:8080")
-	err = http.ListenAndServe("localhost:8080", mux)
+	log.Println("Listening on localhost:50500")
+	err = http.ListenAndServe("localhost:50500", mux)
 	if err != nil {
 		log.Fatalln(err)
 	}
