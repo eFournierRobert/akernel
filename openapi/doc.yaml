@@ -65,17 +65,17 @@ paths:
         "500":
           description: An server error occurred while treating the request.
   /conversation/{id}:
-    parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          type: integer
-          minimum: 1
-          maximum: 1
     get:
       tags: [conversations]
       summary: Get all the messages in a conversation.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+
       responses:
         "200":
           description: A list of messages in order.
@@ -92,6 +92,14 @@ paths:
     delete:
       tags: [ conversations ]
       summary: Delete a whole conversation.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+
       responses:
         "200":
           description: Conversation was deleted.
