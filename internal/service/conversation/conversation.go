@@ -2,20 +2,28 @@ package conversation
 
 import (
 	"akernel/internal/handlers/dto"
+	"akernel/internal/repository"
 	"akernel/internal/repository/conversation"
+	"akernel/internal/repository/message"
 	"akernel/internal/service"
+	"akernel/internal/service/ollama"
+	"context"
 	"fmt"
 
 	"github.com/jmoiron/sqlx"
 )
 
 type Service struct {
-	repository conversation.Repository
+	repository  conversation.Repository
+	messageRepo message.Repository
+	ollama      ollama.Service
 }
 
-func New(db *sqlx.DB) Service {
+func New(db *sqlx.DB, ollamaService ollama.Service) Service {
 	return Service{
-		repository: conversation.New(db),
+		repository:  conversation.New(db),
+		messageRepo: message.New(db),
+		ollama:      ollamaService,
 	}
 }
 
@@ -51,4 +59,63 @@ func (s *Service) DeleteConversation(conversationId int) error {
 	}
 
 	return nil
+}
+
+func (s *Service) CreateNewSummary(ctx context.Context, conversationId int, modelName string) error {
+	if !s.repository.DoesConversationExist(conversationId) {
+		return fmt.Errorf("create new summary: %w", service.ErrConversationDoesNotExist)
+	}
+
+	fullConvo, err := s.selectFullConvoIntoOllamaHistoryMessages(conversationId)
+	if err != nil {
+		return err
+	}
+
+	fullConvo = append(fullConvo, ollama.HistoryMessage{
+		Role:    "user",
+		Content: "Summarize the whole conversation into one concise message.",
+	})
+
+	res, err := s.ollama.PostChat(ctx, modelName, fullConvo, true)
+	if err != nil {
+		return err
+	}
+
+	newSummary := repository.Message{
+		Role:           res.Response.Role,
+		Content:        res.Response.Content,
+		TokenCount:     res.TokenCount,
+		ConversationId: conversationId,
+	}
+	if err = s.messageRepo.InsertMessage(&newSummary); err != nil {
+		return err
+	}
+
+	newSummary, err = s.messageRepo.SelectLastAssistantMessage(conversationId)
+	if err != nil {
+		return err
+	}
+
+	if err = s.repository.SetNewSummary(conversationId, newSummary.ID); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Service) selectFullConvoIntoOllamaHistoryMessages(conversationId int) ([]ollama.HistoryMessage, error) {
+	messages, err := s.messageRepo.SelectFullConversation(conversationId)
+	if err != nil {
+		return nil, err
+	}
+
+	var fullConvo []ollama.HistoryMessage
+	for _, m := range messages {
+		fullConvo = append(fullConvo, ollama.HistoryMessage{
+			Role:    m.Role,
+			Content: m.Content,
+		})
+	}
+
+	return fullConvo, nil
 }

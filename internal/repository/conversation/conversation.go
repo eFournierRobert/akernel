@@ -70,3 +70,12 @@ func (d *Repository) CascadeDeleteConversation(conversationId int) (int, error) 
 
 	return int(rowsAffected), nil
 }
+
+func (d *Repository) SetNewSummary(conversationId, summaryId int) error {
+	_, err := d.db.Exec("UPDATE conversations SET last_summary = $1 WHERE id = $2", summaryId, conversationId)
+	if err != nil {
+		return fmt.Errorf("set new summary: %w", err)
+	}
+
+	return nil
+}

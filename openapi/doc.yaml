@@ -15,7 +15,7 @@ tags:
 paths:
   /chat:
     post:
-      tags: [chat]
+      tags: [ chat ]
       summary: Post a new chat to get an AI response.
       requestBody:
         required: true
@@ -39,7 +39,7 @@ paths:
 
   /models:
     get:
-      tags: [models]
+      tags: [ models ]
       summary: Get a list of the AI models present on the system.
       responses:
         "200":
@@ -53,7 +53,7 @@ paths:
 
   /conversation:
     get:
-      tags: [conversations]
+      tags: [ conversations ]
       summary: Get a list of saved conversations.
       responses:
         "200":
@@ -66,7 +66,7 @@ paths:
           description: An server error occurred while treating the request.
   /conversation/{id}:
     get:
-      tags: [conversations]
+      tags: [ conversations ]
       summary: Get all the messages in a conversation.
       parameters:
         - name: id
@@ -101,6 +101,32 @@ paths:
       responses:
         "200":
           description: Conversation was deleted.
+        "400":
+          description: A bad request was made.
+        "404":
+          description: Conversation does not exist.
+        "500":
+          description: An server error occurred while treating the request.
+  /conversation/{id}/summarize:
+    post:
+      tags: [ conversations ]
+      summary: Make a summary of a conversation to save tokens.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ModelOnly"
+      responses:
+        "200":
+          description: A summary was created for the conversation.
         "400":
           description: A bad request was made.
         "404":
@@ -144,6 +170,12 @@ components:
           type: string
         size:
           type: number
+
+    ModelOnly:
+      type: object
+      properties:
+        name:
+          type: string
 
     ConversationArray:
       type: array

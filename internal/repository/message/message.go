@@ -93,3 +93,13 @@ func (d *Repository) AddTokenToLatestUserMessage(conversationId, tokenCount int)
 
 	return nil
 }
+
+func (d *Repository) SelectLastAssistantMessage(conversationId int) (repository.Message, error) {
+	var message repository.Message
+	err := d.db.Get(&message, "SELECT id FROM messages WHERE conversation_id = $1 ORDER BY id DESC LIMIT 1", conversationId)
+	if err != nil {
+		return repository.Message{}, fmt.Errorf("select last assistant message: %w", err)
+	}
+
+	return message, nil
+}
