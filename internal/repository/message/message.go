@@ -29,11 +29,33 @@ func (d *Repository) InsertMessage(message *repository.Message) error {
 
 // SelectMessagesOfConvo retrieves all messages for a specific conversation, ordered by date.
 func (d *Repository) SelectMessagesOfConvo(conversationId int) ([]repository.Message, error) {
-	var messages []repository.Message
-	err := d.db.Select(&messages, "SELECT role, content FROM messages WHERE conversation_id = $1 ORDER BY datetime ASC", conversationId)
+	var conversation repository.Conversation
+	err := d.db.Get(&conversation, "SELECT last_summary FROM conversations WHERE id = $1", conversationId)
 	if err != nil {
 		return nil, fmt.Errorf("select messages of conversation: %w", err)
 	}
+
+	var messages []repository.Message
+	if conversation.LastSummary.Valid {
+		var summary repository.Message
+		err = d.db.Get(&summary, "SELECT id, role, content FROM messages WHERE id = $1", conversation.LastSummary)
+		if err != nil {
+			return nil, fmt.Errorf("select messages of conversation: %w", err)
+		}
+
+		err = d.db.Select(&messages, "SELECT role, content FROM messages WHERE conversation_id = $1 AND id > $2 ORDER BY id", conversationId, summary.ID)
+		if err != nil {
+			return nil, fmt.Errorf("select messages of conversation: %w", err)
+		}
+
+		messages = append([]repository.Message{summary}, messages...)
+	} else {
+		err = d.db.Select(&messages, "SELECT role, content FROM messages WHERE conversation_id = $1 ORDER BY id", conversationId)
+		if err != nil {
+			return nil, fmt.Errorf("select messages of conversation: %w", err)
+		}
+	}
+
 	return messages, nil
 }
 
@@ -52,7 +74,7 @@ func (d *Repository) PopLastUserMessage(conversationId int) error {
 // SelectFullConversation fetches all the messages of a conversation by its ID.
 func (d *Repository) SelectFullConversation(conversationId int) ([]repository.Message, error) {
 	var messages []repository.Message
-	err := d.db.Select(&messages, "SELECT role, content FROM messages WHERE conversation_id = $1 ORDER BY datetime ASC", conversationId)
+	err := d.db.Select(&messages, "SELECT role, content FROM messages WHERE conversation_id = $1 ORDER BY datetime", conversationId)
 	if err != nil {
 		return nil, fmt.Errorf("get full conversation: %w", err)
 	}
