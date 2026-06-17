@@ -6,10 +6,12 @@ import (
 	"context"
 )
 
+// Service is the service for AI model-related actions.
 type Service struct {
 	ollama ollama.Service
 }
 
+// New creates a new Service that includes the given Ollama service.
 func New(ollama ollama.Service) Service {
 	return Service{
 		ollama,

@@ -28,7 +28,7 @@ func main() {
 
 	chatHandler := chat.New(*ollamaService, db)
 	modelHandler := model.New(*ollamaService)
-	conversationHandler := conversation.New(db)
+	conversationHandler := conversation.New(db, *ollamaService)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /chat", chatHandler.Chat)
@@ -36,6 +36,7 @@ func main() {
 	mux.HandleFunc("GET /conversation", conversationHandler.GetConversations)
 	mux.HandleFunc("GET /conversation/{id}", chatHandler.GetFullConversation)
 	mux.HandleFunc("DELETE /conversation/{id}", conversationHandler.DeleteConversation)
+	mux.HandleFunc("POST /conversation/{id}/summarize", conversationHandler.PostSummarize)
 
 	log.Println("Listening on localhost:50500")
 	err = http.ListenAndServe("localhost:50500", mux)

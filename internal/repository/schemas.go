@@ -1,6 +1,9 @@
 package repository
 
-import "time"
+import (
+	"database/sql"
+	"time"
+)
 
 // Message represents a single message stored in the database.
 type Message struct {
@@ -9,10 +12,12 @@ type Message struct {
 	Content        string    `db:"content"`
 	DateTime       time.Time `db:"datetime"`
 	ConversationId int       `db:"conversation_id"`
+	TokenCount     int       `db:"token_count"`
 }
 
 // Conversation represents a conversation thread with a title.
 type Conversation struct {
-	ID    int    `db:"id"`
-	Title string `db:"title"`
+	ID          int           `db:"id"`
+	Title       string        `db:"title"`
+	LastSummary sql.NullInt32 `db:"last_summary"`
 }

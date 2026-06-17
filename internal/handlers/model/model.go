@@ -8,10 +8,12 @@ import (
 	"net/http"
 )
 
+// Handler is the request handler for AI model-related actions.
 type Handler struct {
 	service model.Service
 }
 
+// New creates a new working Handler.
 func New(ollamaService ollama.Service) Handler {
 	return Handler{
 		model.New(ollamaService),

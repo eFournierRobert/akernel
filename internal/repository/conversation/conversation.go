@@ -9,10 +9,12 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+// Repository provides methods to interact with persistence layer storage for conversation data.
 type Repository struct {
 	db *sqlx.DB
 }
 
+// New constructs and returns a new Repository implementation for data access operations.
 func New(db *sqlx.DB) Repository {
 	return Repository{
 		db,
@@ -69,4 +71,14 @@ func (d *Repository) CascadeDeleteConversation(conversationId int) (int, error) 
 	}
 
 	return int(rowsAffected), nil
+}
+
+// SetNewSummary updates the last_summary field of a conversation with the specified summaryId in the database.
+func (d *Repository) SetNewSummary(conversationId, summaryId int) error {
+	_, err := d.db.Exec("UPDATE conversations SET last_summary = $1 WHERE id = $2", summaryId, conversationId)
+	if err != nil {
+		return fmt.Errorf("set new summary: %w", err)
+	}
+
+	return nil
 }

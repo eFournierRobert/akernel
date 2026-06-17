@@ -1,7 +1,6 @@
 package ollama
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -76,7 +75,7 @@ func (s *Service) GetModels(ctx context.Context) (*Models, error) {
 }
 
 // PostChat sends a message along with conversation history to the specified Ollama model and returns the generated response.
-func (s *Service) PostChat(ctx context.Context, modelName string, history []HistoryMessage, thinking bool) ([]byte, error) {
+func (s *Service) PostChat(ctx context.Context, modelName string, history []HistoryMessage, thinking bool) (MessageResponse, error) {
 	systemPrompt := HistoryMessage{
 		Role:    "system",
 		Content: s.systemPrompt,
@@ -92,66 +91,62 @@ func (s *Service) PostChat(ctx context.Context, modelName string, history []Hist
 		Stream:    false,
 		Options: Options{
 			Temperature: 0.8,
+			NumCtx:      32000,
 		},
 	}
 
 	jsonBody, err := json.Marshal(&body)
 	if err != nil {
-		return nil, fmt.Errorf("post chat: %w", err)
+		return MessageResponse{}, fmt.Errorf("post chat: %w", err)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, buildPath("/chat"), bytes.NewBuffer(jsonBody))
 	if err != nil {
-		return nil, fmt.Errorf("post chat: %w", err)
+		return MessageResponse{}, fmt.Errorf("post chat: %w", err)
 	}
 
 	client := http.Client{}
 	response, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("post chat: %w", err)
+		return MessageResponse{}, fmt.Errorf("post chat: %w", err)
 	}
 	defer response.Body.Close()
 
 	if response.StatusCode == http.StatusOK {
-		scanner := bufio.NewScanner(response.Body)
-		var fullAnswer []byte
-		for scanner.Scan() {
-			line := scanner.Bytes()
-			var answerChunk MessageResponse
-			if err := json.Unmarshal(line, &answerChunk); err != nil {
-				return nil, fmt.Errorf("post chat: %w", err)
-			}
-			fullAnswer = append(fullAnswer, []byte(answerChunk.Response.Content)...)
+		var fullAnswer MessageResponse
+		answer, err := io.ReadAll(response.Body)
+		if err != nil {
+			return MessageResponse{}, fmt.Errorf("post chat: %w", err)
+		}
 
-			if answerChunk.Done {
-				break
-			}
+		if err := json.Unmarshal(answer, &fullAnswer); err != nil {
+			return MessageResponse{}, fmt.Errorf("post chat: %w", err)
 		}
 
 		return fullAnswer, nil
 	}
 	b, err := io.ReadAll(response.Body)
 	if err != nil {
-		return nil, fmt.Errorf("post chat: %w", err)
+		return MessageResponse{}, fmt.Errorf("post chat: %w", err)
 	}
-	return nil, fmt.Errorf("post chat: %w", errors.New(string(b)))
+	return MessageResponse{}, fmt.Errorf("post chat: %w", errors.New(string(b)))
 }
 
 // GenerateConversationTitle asks the smallest available AI model to generate a short title for a given message.
 func (s *Service) GenerateConversationTitle(ctx context.Context, message, model string) (string, error) {
-	titlePrompt := fmt.Sprintf("Can you generate a small conversation title for this message. Message: %s", message)
+	titlePrompt := fmt.Sprintf("Generate a small conversation title for this message. Do not make propositions. Just answer with the title. Message: %s", message)
 
-	history := []HistoryMessage{HistoryMessage{Role: "user", Content: titlePrompt}}
+	history := []HistoryMessage{{Role: "user", Content: titlePrompt}}
 
 	answer, err := s.PostChat(ctx, model, history, false)
 	if err != nil {
 		return "", fmt.Errorf("error while generating title: %w", err)
 	}
 
-	if len(answer) == 0 {
+	if len(answer.Response.Content) == 0 {
 		return "", fmt.Errorf("error while generating title: %w", errors.New("empty response when requested for a title"))
 	}
-	return string(answer), nil
+	return answer.Response.Content, nil
 }
 
 // buildPath constructs a full URL for the Ollama API endpoints.

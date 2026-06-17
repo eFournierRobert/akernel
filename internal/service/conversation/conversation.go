@@ -2,20 +2,31 @@ package conversation
 
 import (
 	"akernel/internal/handlers/dto"
+	"akernel/internal/repository"
 	"akernel/internal/repository/conversation"
+	"akernel/internal/repository/message"
 	"akernel/internal/service"
+	"akernel/internal/service/ollama"
+	"context"
+	"errors"
 	"fmt"
 
 	"github.com/jmoiron/sqlx"
 )
 
+// Service holds the necessary repositories and services for conversations.
 type Service struct {
-	repository conversation.Repository
+	repository  conversation.Repository
+	messageRepo message.Repository
+	ollama      ollama.Service
 }
 
-func New(db *sqlx.DB) Service {
+// New constructs a new Service implementation, initializing repositories and Ollama client.
+func New(db *sqlx.DB, ollamaService ollama.Service) Service {
 	return Service{
-		repository: conversation.New(db),
+		repository:  conversation.New(db),
+		messageRepo: message.New(db),
+		ollama:      ollamaService,
 	}
 }
 
@@ -51,4 +62,68 @@ func (s *Service) DeleteConversation(conversationId int) error {
 	}
 
 	return nil
+}
+
+// CreateNewSummary generates a comprehensive summary of the given conversation using the specified AI model.
+func (s *Service) CreateNewSummary(ctx context.Context, conversationId int, modelName string) error {
+	if !s.repository.DoesConversationExist(conversationId) {
+		return fmt.Errorf("create new summary: %w", service.ErrConversationDoesNotExist)
+	}
+
+	fullConvo, err := s.selectFullConvoIntoOllamaHistoryMessages(conversationId)
+	if err != nil {
+		return err
+	}
+
+	fullConvo = append(fullConvo, ollama.HistoryMessage{
+		Role:    "user",
+		Content: "Summarize the whole conversation into one concise message.",
+	})
+
+	res, err := s.ollama.PostChat(ctx, modelName, fullConvo, true)
+	if err != nil {
+		return err
+	}
+	if len(res.Response.Content) == 0 {
+		return fmt.Errorf("create new summary: %w", errors.New("AI answered with an empty message"))
+	}
+
+	newSummary := repository.Message{
+		Role:           res.Response.Role,
+		Content:        res.Response.Content,
+		TokenCount:     res.TokenCount,
+		ConversationId: conversationId,
+	}
+	if err = s.messageRepo.InsertMessage(&newSummary); err != nil {
+		return err
+	}
+
+	newSummary, err = s.messageRepo.SelectLastAssistantMessage(conversationId)
+	if err != nil {
+		return err
+	}
+
+	if err = s.repository.SetNewSummary(conversationId, newSummary.ID); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// selectFullConvoIntoOllamaHistoryMessages retrieves all messages for a conversation ID and maps them into ollama.HistoryMessage format.
+func (s *Service) selectFullConvoIntoOllamaHistoryMessages(conversationId int) ([]ollama.HistoryMessage, error) {
+	messages, err := s.messageRepo.SelectFullConversation(conversationId)
+	if err != nil {
+		return nil, err
+	}
+
+	var fullConvo []ollama.HistoryMessage
+	for _, m := range messages {
+		fullConvo = append(fullConvo, ollama.HistoryMessage{
+			Role:    m.Role,
+			Content: m.Content,
+		})
+	}
+
+	return fullConvo, nil
 }

@@ -9,8 +9,9 @@ type Prompt struct {
 
 // Answer is the DTO for an AI-generated answer.
 type Answer struct {
-	ConversationId int    `json:"conversationId"`
-	Message        string `json:"message"`
+	ConversationId         int    `json:"conversationId"`
+	Message                string `json:"message"`
+	ConversationTokenCount int    `json:"conversationTokenCount"`
 }
 
 // Conversation is the DTO for a conversation.
@@ -30,4 +31,9 @@ type Model struct {
 type Message struct {
 	Role    string `json:"role"`
 	Content string `json:"content"`
+}
+
+// ModelOnly is the DTO for only sending the name of an AI model.
+type ModelOnly struct {
+	Name string `json:"name"`
 }

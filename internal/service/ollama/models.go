@@ -34,11 +34,14 @@ type Message struct {
 // Options provides configuration parameters for the AI model's generation process.
 type Options struct {
 	Temperature float32 `json:"temperature"`
+	NumCtx      int     `json:"num_ctx"`
 }
 
 // MessageResponse represents a single chunk of a streaming response from the Ollama API.
 type MessageResponse struct {
-	Model    string         `json:"model"`
-	Done     bool           `json:"done"`
-	Response HistoryMessage `json:"message"`
+	Model            string         `json:"model"`
+	Done             bool           `json:"done"`
+	Response         HistoryMessage `json:"message"`
+	TokenCount       int            `json:"eval_count"`
+	PromptTokenCount int            `json:"prompt_eval_count"`
 }
