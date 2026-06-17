@@ -127,6 +127,8 @@ components:
           type: integer
         message:
           type: string
+        conversationTokenCount:
+          type: integer
 
     ModelArray:
       type: array
