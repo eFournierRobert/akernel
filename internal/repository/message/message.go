@@ -7,10 +7,12 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+// Repository provides database access methods for chat conversation data.
 type Repository struct {
 	db *sqlx.DB
 }
 
+// New creates a new Repository instance using the provided database connection.
 func New(db *sqlx.DB) Repository {
 	return Repository{
 		db,
@@ -82,6 +84,7 @@ func (d *Repository) SelectFullConversation(conversationId int) ([]repository.Me
 	return messages, nil
 }
 
+// AddTokenToLatestUserMessage updates the token count for the most recent user message in a conversation.
 func (d *Repository) AddTokenToLatestUserMessage(conversationId, tokenCount int) error {
 	_, err := d.db.Exec(
 		"UPDATE messages SET token_count = $1 WHERE id = (SELECT id FROM messages WHERE conversation_id = $2 AND role='user' ORDER BY datetime DESC LIMIT 1)",
@@ -94,9 +97,10 @@ func (d *Repository) AddTokenToLatestUserMessage(conversationId, tokenCount int)
 	return nil
 }
 
+// SelectLastAssistantMessage retrieves the most recent message posted by an assistant for a given conversation ID.
 func (d *Repository) SelectLastAssistantMessage(conversationId int) (repository.Message, error) {
 	var message repository.Message
-	err := d.db.Get(&message, "SELECT id FROM messages WHERE conversation_id = $1 ORDER BY id DESC LIMIT 1", conversationId)
+	err := d.db.Get(&message, "SELECT id FROM messages WHERE conversation_id = $1 AND role = 'assistant' ORDER BY id DESC LIMIT 1", conversationId)
 	if err != nil {
 		return repository.Message{}, fmt.Errorf("select last assistant message: %w", err)
 	}

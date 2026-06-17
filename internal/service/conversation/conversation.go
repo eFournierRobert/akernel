@@ -14,12 +14,14 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+// Service holds the necessary repositories and services for conversations.
 type Service struct {
 	repository  conversation.Repository
 	messageRepo message.Repository
 	ollama      ollama.Service
 }
 
+// New constructs a new Service implementation, initializing repositories and Ollama client.
 func New(db *sqlx.DB, ollamaService ollama.Service) Service {
 	return Service{
 		repository:  conversation.New(db),
@@ -62,6 +64,7 @@ func (s *Service) DeleteConversation(conversationId int) error {
 	return nil
 }
 
+// CreateNewSummary generates a comprehensive summary of the given conversation using the specified AI model.
 func (s *Service) CreateNewSummary(ctx context.Context, conversationId int, modelName string) error {
 	if !s.repository.DoesConversationExist(conversationId) {
 		return fmt.Errorf("create new summary: %w", service.ErrConversationDoesNotExist)
@@ -107,6 +110,7 @@ func (s *Service) CreateNewSummary(ctx context.Context, conversationId int, mode
 	return nil
 }
 
+// selectFullConvoIntoOllamaHistoryMessages retrieves all messages for a conversation ID and maps them into ollama.HistoryMessage format.
 func (s *Service) selectFullConvoIntoOllamaHistoryMessages(conversationId int) ([]ollama.HistoryMessage, error) {
 	messages, err := s.messageRepo.SelectFullConversation(conversationId)
 	if err != nil {

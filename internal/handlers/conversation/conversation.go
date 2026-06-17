@@ -15,10 +15,12 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+// Handler is the handler for conversation-related actions.
 type Handler struct {
 	service conversation.Service
 }
 
+// New creates a new working Handler.
 func New(db *sqlx.DB, ollamaService ollama.Service) Handler {
 	return Handler{
 		service: conversation.New(db, ollamaService),
@@ -73,6 +75,8 @@ func (h *Handler) DeleteConversation(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// PostSummarize generates a summary for a conversation identified by ID from the path
+// using the model name provided in the request body.
 func (h *Handler) PostSummarize(w http.ResponseWriter, r *http.Request) {
 	log.Println(r.URL.Path)
 

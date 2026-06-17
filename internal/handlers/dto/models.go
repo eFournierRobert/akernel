@@ -33,6 +33,7 @@ type Message struct {
 	Content string `json:"content"`
 }
 
+// ModelOnly is the DTO for only sending the name of an AI model.
 type ModelOnly struct {
 	Name string `json:"name"`
 }
