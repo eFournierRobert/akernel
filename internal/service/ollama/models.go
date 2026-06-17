@@ -14,9 +14,8 @@ type Models struct {
 
 // HistoryMessage represents a single message within a conversation history, including its role and content.
 type HistoryMessage struct {
-	Role       string `json:"role"`
-	Content    string `json:"content"`
-	TokenCount int    `json:"eval_count"`
+	Role    string `json:"role"`
+	Content string `json:"content"`
 }
 
 // Tools is used for defining tools available to the AI model.
@@ -40,7 +39,9 @@ type Options struct {
 
 // MessageResponse represents a single chunk of a streaming response from the Ollama API.
 type MessageResponse struct {
-	Model    string         `json:"model"`
-	Done     bool           `json:"done"`
-	Response HistoryMessage `json:"message"`
+	Model            string         `json:"model"`
+	Done             bool           `json:"done"`
+	Response         HistoryMessage `json:"message"`
+	TokenCount       int            `json:"eval_count"`
+	PromptTokenCount int            `json:"prompt_eval_count"`
 }

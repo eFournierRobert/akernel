@@ -65,12 +65,16 @@ func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) 
 	}
 
 	if len(answer.Response.Content) > 0 {
-		if err = s.InsertAssistantAnswer(answer.Response.Content, answer.Response.TokenCount, conversationId); err != nil {
+		if err = s.InsertAssistantAnswer(answer.Response.Content, answer.TokenCount, conversationId); err != nil {
+			return nil, err
+		}
+		if err = s.messageRepo.AddTokenToLatestUserMessage(conversationId, answer.PromptTokenCount); err != nil {
 			return nil, err
 		}
 		return &dto.Answer{
-			Message:        answer.Response.Content,
-			ConversationId: conversationId,
+			Message:                answer.Response.Content,
+			ConversationId:         conversationId,
+			ConversationTokenCount: answer.TokenCount + answer.PromptTokenCount,
 		}, nil
 	}
 

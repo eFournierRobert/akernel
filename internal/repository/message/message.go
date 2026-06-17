@@ -59,3 +59,15 @@ func (d *Repository) SelectFullConversation(conversationId int) ([]repository.Me
 
 	return messages, nil
 }
+
+func (d *Repository) AddTokenToLatestUserMessage(conversationId, tokenCount int) error {
+	_, err := d.db.Exec(
+		"UPDATE messages SET token_count = $1 WHERE id = (SELECT id FROM messages WHERE conversation_id = $2 AND role='user' ORDER BY datetime DESC LIMIT 1)",
+		tokenCount,
+		conversationId)
+	if err != nil {
+		return fmt.Errorf("updating latest user message token count: %w", err)
+	}
+
+	return nil
+}
