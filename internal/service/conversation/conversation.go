@@ -8,6 +8,7 @@ import (
 	"akernel/internal/service"
 	"akernel/internal/service/ollama"
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/jmoiron/sqlx"
@@ -79,6 +80,9 @@ func (s *Service) CreateNewSummary(ctx context.Context, conversationId int, mode
 	res, err := s.ollama.PostChat(ctx, modelName, fullConvo, true)
 	if err != nil {
 		return err
+	}
+	if len(res.Response.Content) == 0 {
+		return fmt.Errorf("create new summary: %w", errors.New("AI answered with an empty message"))
 	}
 
 	newSummary := repository.Message{
