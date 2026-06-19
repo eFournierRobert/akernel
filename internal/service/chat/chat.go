@@ -7,7 +7,9 @@ import (
 	"akernel/internal/repository/message"
 	"akernel/internal/service"
 	"akernel/internal/service/ollama"
+	"akernel/internal/service/ollama/tools"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -62,6 +64,40 @@ func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) 
 		}
 
 		return nil, err
+	}
+
+	if len(answer.Response.ToolCalls) > 0 {
+		toolCallJson, err := json.Marshal(answer.Response.ToolCalls)
+		if err != nil {
+			return nil, fmt.Errorf("generate prompt answer: %w", err)
+		}
+
+		if err = s.InsertAssistantAnswer(string(toolCallJson), answer.TokenCount, conversationId); err != nil {
+			return nil, fmt.Errorf("generate prompt answer: %w", err)
+		}
+
+		for _, t := range answer.Response.ToolCalls {
+			if t.Function.Name == "get_current_time" {
+				currentTime := tools.GetCurrentTime()
+				if err = s.insertToolAnswer(conversationId, currentTime); err != nil {
+					return nil, fmt.Errorf("generate prompt answer: %w", err)
+				}
+			}
+		}
+
+		history, err = s.fetchConversationHistory(conversationId)
+		if err != nil {
+			return nil, err
+		}
+
+		answer, err = s.ollamaService.PostChat(ctx, prompt.Model, history, true)
+		if err != nil || ctx.Err() != nil {
+			if err = s.messageRepo.PopLastUserMessage(conversationId); err != nil {
+				return nil, err
+			}
+
+			return nil, err
+		}
 	}
 
 	if len(answer.Response.Content) > 0 {
@@ -168,6 +204,21 @@ func (s *Service) insertPrompt(ctx context.Context, prompt *dto.Prompt) (int, er
 	}
 
 	return m.ConversationId, nil
+}
+
+func (s *Service) insertToolAnswer(conversationId int, toolAnswer string) error {
+	m := repository.Message{
+		Role:           "tool",
+		Content:        toolAnswer,
+		ConversationId: conversationId,
+		DateTime:       time.Now(),
+	}
+
+	if err := s.messageRepo.InsertMessage(&m); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // fetchConversationHistory retrieves all messages for a conversation and converts them into the history format required by Ollama.

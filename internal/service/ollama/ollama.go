@@ -1,6 +1,7 @@
 package ollama
 
 import (
+	"akernel/internal/service/ollama/tools"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -93,6 +94,7 @@ func (s *Service) PostChat(ctx context.Context, modelName string, history []Hist
 			Temperature: 0.8,
 			NumCtx:      32000,
 		},
+		Tools: tools.GetAllToolSchemas(),
 	}
 
 	jsonBody, err := json.Marshal(&body)
