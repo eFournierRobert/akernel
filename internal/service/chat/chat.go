@@ -62,22 +62,8 @@ func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) 
 	}
 
 	if len(answer.Response.ToolCalls) > 0 {
-		toolCallJson, err := json.Marshal(answer.Response.ToolCalls)
-		if err != nil {
-			return nil, fmt.Errorf("generate prompt answer: %w", err)
-		}
-
-		if err = s.InsertAssistantAnswer(string(toolCallJson), answer.TokenCount, conversationId); err != nil {
-			return nil, fmt.Errorf("generate prompt answer: %w", err)
-		}
-
-		for _, t := range answer.Response.ToolCalls {
-			if t.Function.Name == "get_current_time" {
-				currentTime := tools.GetCurrentTime()
-				if err = s.insertToolAnswer(conversationId, currentTime); err != nil {
-					return nil, fmt.Errorf("generate prompt answer: %w", err)
-				}
-			}
+		if err = s.makeToolCalls(conversationId, answer.Response.ToolCalls); err != nil {
+			return nil, err
 		}
 
 		answer, err = s.getHistoryAndPostChat(ctx, conversationId, prompt)
@@ -245,4 +231,26 @@ func (s *Service) getHistoryAndPostChat(ctx context.Context, conversationId int,
 	}
 
 	return answer, err
+}
+
+func (s *Service) makeToolCalls(conversationId int, toolCalls []ollama.ToolCall) error {
+	toolCallJson, err := json.Marshal(toolCalls)
+	if err != nil {
+		return fmt.Errorf("generate prompt answer: %w", err)
+	}
+
+	if err = s.InsertAssistantAnswer(string(toolCallJson), 0, conversationId); err != nil {
+		return fmt.Errorf("generate prompt answer: %w", err)
+	}
+
+	for _, t := range toolCalls {
+		if t.Function.Name == "get_current_time" {
+			currentTime := tools.GetCurrentTime()
+			if err = s.insertToolAnswer(conversationId, currentTime); err != nil {
+				return fmt.Errorf("generate prompt answer: %w", err)
+			}
+		}
+	}
+
+	return nil
 }
