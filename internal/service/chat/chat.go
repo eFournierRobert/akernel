@@ -233,7 +233,7 @@ func (s *Service) getHistoryAndPostChat(ctx context.Context, conversationId int,
 	return answer, err
 }
 
-func (s *Service) makeToolCalls(conversationId int, toolCalls []ollama.ToolCall) error {
+func (s *Service) makeToolCalls(conversationId int, toolCalls []tools.ToolCall) error {
 	toolCallJson, err := json.Marshal(toolCalls)
 	if err != nil {
 		return fmt.Errorf("generate prompt answer: %w", err)
@@ -244,11 +244,9 @@ func (s *Service) makeToolCalls(conversationId int, toolCalls []ollama.ToolCall)
 	}
 
 	for _, t := range toolCalls {
-		if t.Function.Name == "get_current_time" {
-			currentTime := tools.GetCurrentTime()
-			if err = s.insertToolAnswer(conversationId, currentTime); err != nil {
-				return fmt.Errorf("generate prompt answer: %w", err)
-			}
+		res := tools.ToolCallRouter(t)
+		if err = s.insertToolAnswer(conversationId, res); err != nil {
+			return fmt.Errorf("generate prompt answer: %w", err)
 		}
 	}
 

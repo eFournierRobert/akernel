@@ -2,7 +2,6 @@ package ollama
 
 import (
 	"akernel/internal/service/ollama/tools"
-	"encoding/json"
 )
 
 // Model represents metadata for an AI model available in Ollama.
@@ -19,9 +18,9 @@ type Models struct {
 
 // HistoryMessage represents a single message within a conversation history, including its role and content.
 type HistoryMessage struct {
-	Role      string     `json:"role"`
-	Content   string     `json:"content"`
-	ToolCalls []ToolCall `json:"tool_calls"`
+	Role      string           `json:"role"`
+	Content   string           `json:"content"`
+	ToolCalls []tools.ToolCall `json:"tool_calls"`
 }
 
 // Message defines the request payload for sending a chat prompt to an Ollama model.
@@ -48,14 +47,4 @@ type MessageResponse struct {
 	Response         HistoryMessage `json:"message"`
 	TokenCount       int            `json:"eval_count"`
 	PromptTokenCount int            `json:"prompt_eval_count"`
-}
-
-type ToolCall struct {
-	Function Function `json:"function"`
-}
-
-type Function struct {
-	Name        string          `json:"name"`
-	Arguments   json.RawMessage `json:"arguments"`
-	Description string          `json:"description"`
 }
