@@ -52,12 +52,7 @@ func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) 
 		return nil, err
 	}
 
-	history, err := s.fetchConversationHistory(conversationId)
-	if err != nil {
-		return nil, err
-	}
-
-	answer, err := s.ollamaService.PostChat(ctx, prompt.Model, history, true)
+	answer, err := s.getHistoryAndPostChat(ctx, conversationId, prompt)
 	if err != nil || ctx.Err() != nil {
 		if err = s.messageRepo.PopLastUserMessage(conversationId); err != nil {
 			return nil, err
@@ -85,12 +80,7 @@ func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) 
 			}
 		}
 
-		history, err = s.fetchConversationHistory(conversationId)
-		if err != nil {
-			return nil, err
-		}
-
-		answer, err = s.ollamaService.PostChat(ctx, prompt.Model, history, true)
+		answer, err = s.getHistoryAndPostChat(ctx, conversationId, prompt)
 		if err != nil || ctx.Err() != nil {
 			if err = s.messageRepo.PopLastUserMessage(conversationId); err != nil {
 				return nil, err
@@ -237,4 +227,22 @@ func (s *Service) fetchConversationHistory(conversationId int) ([]ollama.History
 	}
 
 	return history, nil
+}
+
+func (s *Service) getHistoryAndPostChat(ctx context.Context, conversationId int, prompt *dto.Prompt) (ollama.MessageResponse, error) {
+	history, err := s.fetchConversationHistory(conversationId)
+	if err != nil {
+		return ollama.MessageResponse{}, err
+	}
+
+	answer, err := s.ollamaService.PostChat(ctx, prompt.Model, history, true)
+	if err != nil || ctx.Err() != nil {
+		if err = s.messageRepo.PopLastUserMessage(conversationId); err != nil {
+			return ollama.MessageResponse{}, err
+		}
+
+		return ollama.MessageResponse{}, err
+	}
+
+	return answer, err
 }
