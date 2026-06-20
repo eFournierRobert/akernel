@@ -13,6 +13,7 @@ type Answer struct {
 	Role                   string `json:"role"`
 	ConversationId         int    `json:"conversationId"`
 	Message                string `json:"message"`
+	Thinking               string `json:"thinking"`
 	ConversationTokenCount int    `json:"conversationTokenCount"`
 }
 
@@ -31,8 +32,9 @@ type Model struct {
 
 // Message is the DTO for a message.
 type Message struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role     string `json:"role"`
+	Thinking string `json:"thinking"`
+	Content  string `json:"content"`
 }
 
 // ModelOnly is the DTO for only sending the name of an AI model.

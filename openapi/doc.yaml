@@ -38,12 +38,15 @@ paths:
                 - conversationId: 1
                   role: "assistant"
                   message: "Thinking about the question..."
+                  thinking: ""
                 - conversationId: 1
                   role: "tool"
                   message: "{\"result\":42}"
+                  thinking: ""
                 - conversationId: 1
                   role: "assistant"
                   message: "The meaning of life is 42."
+                  thinking: "Let me break this down step by step..."
                   conversationTokenCount: 150
         "400":
           description: A bad request was made.
@@ -110,8 +113,10 @@ paths:
               example:
                 - role: "user"
                   content: "Hello"
+                  thinking: ""
                 - role: "assistant"
                   content: "Hi there!"
+                  thinking: ""
         "400":
           description: A bad request was made.
         "404":
@@ -207,6 +212,9 @@ components:
         message:
           type: string
           description: The AI-generated answer text or tool result.
+        thinking:
+          type: string
+          description: The model's chain-of-thought reasoning. May be empty if thinking was not used.
         conversationTokenCount:
           type: integer
           description: Total token count (prompt + response).
@@ -269,3 +277,6 @@ components:
         content:
           type: string
           description: The message text.
+        thinking:
+          type: string
+          description: The model's chain-of-thought reasoning. May be empty if thinking was not used.

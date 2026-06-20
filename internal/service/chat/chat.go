@@ -63,7 +63,7 @@ func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) 
 	}
 
 	if len(answer.Response.ToolCalls) > 0 {
-		if err = s.makeToolCalls(conversationId, answer.Response.ToolCalls); err != nil {
+		if err = s.makeToolCalls(answer.Response.Thinking, conversationId, answer.Response.ToolCalls); err != nil {
 			return nil, err
 		}
 
@@ -78,7 +78,7 @@ func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) 
 	}
 
 	if len(answer.Response.Content) > 0 {
-		if err = s.InsertAssistantAnswer(answer.Response.Content, answer.TokenCount, conversationId); err != nil {
+		if err = s.InsertAssistantAnswer(answer.Response.Thinking, answer.Response.Content, answer.TokenCount, conversationId); err != nil {
 			return nil, err
 		}
 		if err = s.messageRepo.AddTokenToLatestUserMessage(conversationId, answer.PromptTokenCount); err != nil {
@@ -94,11 +94,12 @@ func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) 
 }
 
 // InsertAssistantAnswer saves the AI's response to the database for a specific conversation.
-func (s *Service) InsertAssistantAnswer(answer string, tokenCount, conversationId int) error {
+func (s *Service) InsertAssistantAnswer(thinking, answer string, tokenCount, conversationId int) error {
 	m := repository.Message{
 		Role:           "assistant",
 		Content:        answer,
 		ConversationId: conversationId,
+		Thinking:       thinking,
 		DateTime:       time.Now(),
 		TokenCount:     tokenCount,
 	}
@@ -121,8 +122,9 @@ func (s *Service) GetConversation(conversationId int) ([]dto.Message, error) {
 	if messages != nil {
 		for _, m := range messages {
 			messagesDto = append(messagesDto, dto.Message{
-				Role:    m.Role,
-				Content: m.Content,
+				Role:     m.Role,
+				Thinking: m.Thinking,
+				Content:  m.Content,
 			})
 		}
 	} else {
@@ -233,13 +235,13 @@ func (s *Service) getHistoryAndPostChat(ctx context.Context, conversationId int,
 }
 
 // makeToolCalls iterates over the tool calls returned by Ollama, dispatches each through ToolCallRouter, and stores the results as messages.
-func (s *Service) makeToolCalls(conversationId int, toolCalls []tools.ToolCall) error {
+func (s *Service) makeToolCalls(thinking string, conversationId int, toolCalls []tools.ToolCall) error {
 	toolCallJson, err := json.Marshal(toolCalls)
 	if err != nil {
 		return fmt.Errorf("generate prompt answer: %w", err)
 	}
 
-	if err = s.InsertAssistantAnswer(string(toolCallJson), 0, conversationId); err != nil {
+	if err = s.InsertAssistantAnswer(thinking, string(toolCallJson), 0, conversationId); err != nil {
 		return fmt.Errorf("generate prompt answer: %w", err)
 	}
 
@@ -267,6 +269,7 @@ func (s *Service) getAllMessagesAfterPrompt(conversationId int, prompt string) (
 			Role:                   m.Role,
 			ConversationId:         m.ConversationId,
 			Message:                m.Content,
+			Thinking:               m.Thinking,
 			ConversationTokenCount: m.TokenCount,
 		})
 	}

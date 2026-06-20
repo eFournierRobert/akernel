@@ -22,7 +22,7 @@ func New(db *sqlx.DB) Repository {
 
 // InsertMessage saves a message to the database and creates a new conversation if necessary.
 func (d *Repository) InsertMessage(message *repository.Message) error {
-	_, err := d.db.NamedExec("INSERT INTO messages (role, content, conversation_id, datetime, token_count) VALUES (:role, :content, :conversation_id, :datetime, :token_count)", message)
+	_, err := d.db.NamedExec("INSERT INTO messages (role, content, thinking, conversation_id, datetime, token_count) VALUES (:role, :content, :thinking, :conversation_id, :datetime, :token_count)", message)
 	if err != nil {
 		return fmt.Errorf("insert message: %w", err)
 	}
@@ -77,7 +77,7 @@ func (d *Repository) PopLastUserMessage(conversationId int) error {
 // SelectFullConversation fetches all the messages of a conversation by its ID.
 func (d *Repository) SelectFullConversation(conversationId int) ([]repository.Message, error) {
 	var messages []repository.Message
-	err := d.db.Select(&messages, "SELECT role, content FROM messages WHERE conversation_id = $1 ORDER BY datetime", conversationId)
+	err := d.db.Select(&messages, "SELECT role, thinking, content FROM messages WHERE conversation_id = $1 ORDER BY datetime", conversationId)
 	if err != nil {
 		return nil, fmt.Errorf("get full conversation: %w", err)
 	}
@@ -114,7 +114,7 @@ func (d *Repository) SelectLastAssistantMessage(conversationId int) (repository.
 // call responses and subsequent assistant messages following the prompt.
 func (d *Repository) SelectAllMessagesAfterLastPrompt(conversationId int, prompt string) ([]repository.Message, error) {
 	var messages []repository.Message
-	err := d.db.Select(&messages, "SELECT role, content, token_count, conversation_id FROM messages WHERE id > (SELECT MIN(id) FROM messages WHERE content = $1 AND role = 'user' AND conversation_id = $2) AND conversation_id = $2 ORDER BY id", prompt, conversationId)
+	err := d.db.Select(&messages, "SELECT role, content, thinking, token_count, conversation_id FROM messages WHERE id > (SELECT MIN(id) FROM messages WHERE content = $1 AND role = 'user' AND conversation_id = $2) AND conversation_id = $2 ORDER BY id", prompt, conversationId)
 	if err != nil {
 		return nil, fmt.Errorf("select all messages after last prompt: %w", err)
 	}
