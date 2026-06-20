@@ -29,15 +29,22 @@ paths:
               conversationId: -1
       responses:
         "200":
-          description: AI responded in the request body
+          description: All messages generated after the prompt (tool calls, tool results, assistant answer)
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Answer"
+                $ref: "#/components/schemas/AnswerArray"
               example:
-                conversationId: 1
-                message: "42"
-                conversationTokenCount: 150
+                - conversationId: 1
+                  role: "assistant"
+                  message: "Thinking about the question..."
+                - conversationId: 1
+                  role: "tool"
+                  message: "{\"result\":42}"
+                - conversationId: 1
+                  role: "assistant"
+                  message: "The meaning of life is 42."
+                  conversationTokenCount: 150
         "400":
           description: A bad request was made.
         "404":
@@ -182,15 +189,24 @@ components:
           minimum: -1
           example: -1
 
+    AnswerArray:
+      type: array
+      items:
+        $ref: "#/components/schemas/Answer"
+
     Answer:
       type: object
       properties:
         conversationId:
           type: integer
           description: The ID of the conversation this response belongs to.
+        role:
+          type: string
+          description: Sender role, one of "assistant" or "tool".
+          example: "assistant"
         message:
           type: string
-          description: The AI-generated answer text.
+          description: The AI-generated answer text or tool result.
         conversationTokenCount:
           type: integer
           description: Total token count (prompt + response).

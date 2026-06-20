@@ -253,6 +253,8 @@ func (s *Service) makeToolCalls(conversationId int, toolCalls []tools.ToolCall) 
 	return nil
 }
 
+// getAllMessagesAfterPrompt fetches all messages generated after the user's original prompt,
+// excluding the prompt itself.
 func (s *Service) getAllMessagesAfterPrompt(conversationId int, prompt string) ([]dto.Answer, error) {
 	messages, err := s.messageRepo.SelectAllMessagesAfterLastPrompt(conversationId, prompt)
 	if err != nil {

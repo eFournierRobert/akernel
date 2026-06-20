@@ -7,7 +7,7 @@ Go CLI backend that proxies an LLM (Ollama) with conversation persistence in SQL
 Your primary responsibilities are:
 
 1. **Write documentation** — add `go doc`-compatible comments for all public and private types, functions, and methods across the codebase as well as package level docs.
-2. **Write unit tests** — when asked, use table-driven tests with the standard `testing` package. `github.com/stretchr/testify` is already a dependency.
+2. **Write unit tests** — when asked, use table-driven tests with the standard `testing` package. `github.com/stretchr/testify` is already a dependency. Be thorough and harsh: cover edge cases, error paths, nil inputs, boundary values, and failure scenarios — never test only the happy path. After writing tests, summarize any code changes that would benefit from refactoring and list which test failures could be resolved by those improvements.
 
 ## Build and run
 
