@@ -37,7 +37,7 @@ func NewChatService(db *sqlx.DB, ollama ollama.Service) *Service {
 }
 
 // GeneratePromptAnswer takes a user prompt and generates an AI answer. Also creates a conversation if necessary.
-func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) (*dto.Answer, error) {
+func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) ([]dto.Answer, error) {
 	if modelIsValid, err := s.doesModelExist(ctx, prompt.Model); err != nil {
 		return nil, err
 	} else if !modelIsValid {
@@ -84,11 +84,7 @@ func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) 
 		if err = s.messageRepo.AddTokenToLatestUserMessage(conversationId, answer.PromptTokenCount); err != nil {
 			return nil, err
 		}
-		return &dto.Answer{
-			Message:                answer.Response.Content,
-			ConversationId:         conversationId,
-			ConversationTokenCount: answer.TokenCount + answer.PromptTokenCount,
-		}, nil
+		return s.getAllMessagesAfterPrompt(conversationId, prompt.Message)
 	}
 
 	if err = s.messageRepo.PopLastUserMessage(conversationId); err != nil {
@@ -255,4 +251,24 @@ func (s *Service) makeToolCalls(conversationId int, toolCalls []tools.ToolCall) 
 	}
 
 	return nil
+}
+
+func (s *Service) getAllMessagesAfterPrompt(conversationId int, prompt string) ([]dto.Answer, error) {
+	messages, err := s.messageRepo.SelectAllMessagesAfterLastPrompt(conversationId, prompt)
+	if err != nil {
+		return nil, err
+	}
+	messages = messages[1:]
+
+	var dtoMessages []dto.Answer
+	for _, m := range messages {
+		dtoMessages = append(dtoMessages, dto.Answer{
+			Role:                   m.Role,
+			ConversationId:         m.ConversationId,
+			Message:                m.Content,
+			ConversationTokenCount: m.TokenCount,
+		})
+	}
+
+	return dtoMessages, nil
 }

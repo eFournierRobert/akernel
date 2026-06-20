@@ -10,6 +10,7 @@ type Prompt struct {
 
 // Answer is the DTO for an AI-generated answer.
 type Answer struct {
+	Role                   string `json:"role"`
 	ConversationId         int    `json:"conversationId"`
 	Message                string `json:"message"`
 	ConversationTokenCount int    `json:"conversationTokenCount"`

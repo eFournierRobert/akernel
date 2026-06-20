@@ -2,7 +2,7 @@
 package message
 
 import (
-    "akernel/internal/repository"
+	"akernel/internal/repository"
 	"fmt"
 
 	"github.com/jmoiron/sqlx"
@@ -107,4 +107,13 @@ func (d *Repository) SelectLastAssistantMessage(conversationId int) (repository.
 	}
 
 	return message, nil
+}
+
+func (d *Repository) SelectAllMessagesAfterLastPrompt(conversationId int, prompt string) ([]repository.Message, error) {
+	var messages []repository.Message
+	err := d.db.Select(&messages, "SELECT role, content, token_count, conversation_id FROM messages WHERE id >= (SELECT MIN(id) FROM messages WHERE content = $1 AND role = 'user' AND conversation_id = $2) AND conversation_id = $2 ORDER BY id", prompt, conversationId)
+	if err != nil {
+		return nil, fmt.Errorf("select all messages after last prompt: %w", err)
+	}
+	return messages, nil
 }
