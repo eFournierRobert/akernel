@@ -260,7 +260,6 @@ func (s *Service) getAllMessagesAfterPrompt(conversationId int, prompt string) (
 	if err != nil {
 		return nil, err
 	}
-	messages = messages[1:]
 
 	var dtoMessages []dto.Answer
 	for _, m := range messages {
