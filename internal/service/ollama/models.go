@@ -20,6 +20,7 @@ type Models struct {
 type HistoryMessage struct {
 	Role      string           `json:"role"`
 	Content   string           `json:"content"`
+	Thinking  string           `json:"thinking"`
 	ToolCalls []tools.ToolCall `json:"tool_calls"`
 }
 
