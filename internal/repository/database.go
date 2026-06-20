@@ -1,3 +1,4 @@
+// Package repository provides database access to conversation data via sqlx and SQLite.
 package repository
 
 import (

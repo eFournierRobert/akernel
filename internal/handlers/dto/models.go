@@ -1,3 +1,4 @@
+// Package dto defines data transfer objects used between HTTP handlers and service layers.
 package dto
 
 // Prompt is the DTO for a received prompt.

@@ -1,3 +1,4 @@
+// Package model provides the HTTP handler for AI model-related endpoints.
 package model
 
 import (

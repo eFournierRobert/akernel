@@ -8,11 +8,13 @@ import (
 	"github.com/adrg/xdg"
 )
 
+// WriteToFileArgs holds the arguments passed by an Ollama model for the write_to_file tool.
 type WriteToFileArgs struct {
 	Content  string `json:"content"`
 	FileName string `json:"filename"`
 }
 
+// WriteToFile writes content to a file under $XDG_DATA_HOME/akernel/. It returns a success message or an error string.
 func WriteToFile(args []byte) string {
 	var arguments WriteToFileArgs
 	err := json.Unmarshal(args, &arguments)
@@ -28,6 +30,7 @@ func WriteToFile(args []byte) string {
 	return "wrote to file successfully"
 }
 
+// GetWriteToFileSchema returns the Ollama function-calling schema for the write_to_file tool.
 func GetWriteToFileSchema() Tools {
 	properties := []byte("\"properties\": {\"filename\": {\"type\": \"string\", \"description\": \"The name of the file to write to\"}, \"content\": {\"type\": \"string\", \"description\": \"The content to write\"}}")
 	parameters := []byte("{\"type\": \"object\", ")

@@ -1,3 +1,4 @@
+// Package chat implements the business logic for chat operations and tool-call orchestration.
 package chat
 
 import (
@@ -182,6 +183,7 @@ func (s *Service) insertPrompt(ctx context.Context, prompt *dto.Prompt) (int, er
 	return m.ConversationId, nil
 }
 
+// insertToolAnswer saves a single tool execution result as a message in the conversation.
 func (s *Service) insertToolAnswer(conversationId int, toolAnswer string) error {
 	m := repository.Message{
 		Role:           "tool",
@@ -215,6 +217,7 @@ func (s *Service) fetchConversationHistory(conversationId int) ([]ollama.History
 	return history, nil
 }
 
+// getHistoryAndPostChat retrieves the conversation history and sends it to Ollama for a response.
 func (s *Service) getHistoryAndPostChat(ctx context.Context, conversationId int, prompt *dto.Prompt) (ollama.MessageResponse, error) {
 	history, err := s.fetchConversationHistory(conversationId)
 	if err != nil {
@@ -233,6 +236,7 @@ func (s *Service) getHistoryAndPostChat(ctx context.Context, conversationId int,
 	return answer, err
 }
 
+// makeToolCalls iterates over the tool calls returned by Ollama, dispatches each through ToolCallRouter, and stores the results as messages.
 func (s *Service) makeToolCalls(conversationId int, toolCalls []tools.ToolCall) error {
 	toolCallJson, err := json.Marshal(toolCalls)
 	if err != nil {

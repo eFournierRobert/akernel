@@ -1,7 +1,8 @@
+// Package message provides database access methods for chat messages.
 package message
 
 import (
-	"akernel/internal/repository"
+    "akernel/internal/repository"
 	"fmt"
 
 	"github.com/jmoiron/sqlx"

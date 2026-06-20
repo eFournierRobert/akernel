@@ -1,3 +1,4 @@
+// Package chat provides the HTTP handler for chat-related endpoints.
 package chat
 
 import (

@@ -1,3 +1,4 @@
+// Package ollama provides a client for interacting with the Ollama API, including chat requests and model listing.
 package ollama
 
 import (

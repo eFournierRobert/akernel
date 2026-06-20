@@ -1,3 +1,4 @@
+// Package conversation provides the HTTP handler for conversation-related endpoints.
 package conversation
 
 import (

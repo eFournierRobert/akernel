@@ -1,3 +1,4 @@
+// Package conversation implements the business logic for managing conversations and summaries.
 package conversation
 
 import (
