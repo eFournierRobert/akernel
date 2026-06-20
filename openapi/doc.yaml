@@ -23,6 +23,10 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/Prompt"
+            example:
+              model: "llama3.2"
+              message: "What is the meaning of life?"
+              conversationId: -1
       responses:
         "200":
           description: AI responded in the request body
@@ -30,12 +34,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Answer"
+              example:
+                conversationId: 1
+                message: "42"
+                conversationTokenCount: 150
         "400":
           description: A bad request was made.
         "404":
           description: The conversation or the model was not found.
         "500":
-          description: An server error occurred while treating the request.
+          description: A server error occurred while treating the request.
 
   /models:
     get:
@@ -48,8 +56,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ModelArray"
+              example:
+                - name: "llama3.2"
+                  model: "llama3.2"
+                  size: 2.12
         "500":
-          description: An server error occurred while treating the request.
+          description: A server error occurred while treating the request.
 
   /conversation:
     get:
@@ -62,8 +74,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ConversationArray"
+              example:
+                - id: 1
+                  title: "Meaning of life"
+                - id: 2
+                  title: "Go programming help"
         "500":
-          description: An server error occurred while treating the request.
+          description: A server error occurred while treating the request.
+
   /conversation/{id}:
     get:
       tags: [ conversations ]
@@ -82,12 +100,17 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MessageArray"
+              example:
+                - role: "user"
+                  content: "Hello"
+                - role: "assistant"
+                  content: "Hi there!"
         "400":
           description: A bad request was made.
         "404":
           description: Conversation does not exist.
         "500":
-          description: An server error occurred while treating the request.
+          description: A server error occurred while treating the request.
     delete:
       tags: [ conversations ]
       summary: Delete a whole conversation.
@@ -106,7 +129,8 @@ paths:
         "404":
           description: Conversation does not exist.
         "500":
-          description: An server error occurred while treating the request.
+          description: A server error occurred while treating the request.
+
   /conversation/{id}/summarize:
     post:
       tags: [ conversations ]
@@ -124,6 +148,8 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/ModelOnly"
+            example:
+              name: "llama3.2"
       responses:
         "200":
           description: A summary was created for the conversation.
@@ -132,29 +158,42 @@ paths:
         "404":
           description: Conversation does not exist.
         "500":
-          description: An server error occurred while treating the request.
+          description: A server error occurred while treating the request.
 
 components:
   schemas:
     Prompt:
       type: object
+      required:
+        - model
+        - message
       properties:
         model:
           type: string
+          description: The name of the Ollama model to use.
+          example: "llama3.2"
         message:
           type: string
+          description: The user prompt to send to the AI.
+          example: "What is the meaning of life?"
         conversationId:
           type: integer
+          description: Existing conversation ID, or -1 to create a new conversation.
+          minimum: -1
+          example: -1
 
     Answer:
       type: object
       properties:
         conversationId:
           type: integer
+          description: The ID of the conversation this response belongs to.
         message:
           type: string
+          description: The AI-generated answer text.
         conversationTokenCount:
           type: integer
+          description: Total token count (prompt + response).
 
     ModelArray:
       type: array
@@ -166,16 +205,23 @@ components:
       properties:
         name:
           type: string
+          description: Human-readable model name.
         model:
           type: string
+          description: Underlying model identifier.
         size:
           type: number
+          description: Approximate model size in gigabytes.
 
     ModelOnly:
       type: object
+      required:
+        - name
       properties:
         name:
           type: string
+          description: Name of the Ollama model to use.
+          example: "llama3.2"
 
     ConversationArray:
       type: array
@@ -187,8 +233,10 @@ components:
       properties:
         id:
           type: integer
+          description: Unique conversation identifier.
         title:
           type: string
+          description: Auto-generated conversation title.
 
     MessageArray:
       type: array
@@ -200,5 +248,8 @@ components:
       properties:
         role:
           type: string
+          description: Sender role, one of "user", "assistant", or "tool".
+          example: "user"
         content:
           type: string
+          description: The message text.
