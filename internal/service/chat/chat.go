@@ -104,7 +104,7 @@ func (s *Service) InsertAssistantAnswer(thinking, answer string, tokenCount, con
 		TokenCount:     tokenCount,
 	}
 
-	return s.messageRepo.InsertMessage(&m)
+	return s.messageRepo.InsertMessage(m)
 }
 
 // GetConversation gets the conversation and returns an array of Message DTO.
@@ -174,7 +174,7 @@ func (s *Service) insertPrompt(ctx context.Context, prompt *dto.Prompt) (int, er
 		m.ConversationId = newConversation.ID
 	}
 
-	if err := s.messageRepo.InsertMessage(&m); err != nil {
+	if err := s.messageRepo.InsertMessage(m); err != nil {
 		return 0, err
 	}
 
@@ -190,7 +190,7 @@ func (s *Service) insertToolAnswer(conversationId int, toolAnswer string) error 
 		DateTime:       time.Now(),
 	}
 
-	if err := s.messageRepo.InsertMessage(&m); err != nil {
+	if err := s.messageRepo.InsertMessage(m); err != nil {
 		return err
 	}
 

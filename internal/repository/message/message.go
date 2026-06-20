@@ -21,7 +21,7 @@ func New(db *sqlx.DB) Repository {
 }
 
 // InsertMessage saves a message to the database and creates a new conversation if necessary.
-func (d *Repository) InsertMessage(message *repository.Message) error {
+func (d *Repository) InsertMessage(message repository.Message) error {
 	_, err := d.db.NamedExec("INSERT INTO messages (role, content, thinking, conversation_id, datetime, token_count) VALUES (:role, :content, :thinking, :conversation_id, :datetime, :token_count)", message)
 	if err != nil {
 		return fmt.Errorf("insert message: %w", err)
@@ -65,7 +65,7 @@ func (d *Repository) SelectMessagesOfConvo(conversationId int) ([]repository.Mes
 // PopLastUserMessage removes the most recent message sent by the user in a specific conversation.
 func (d *Repository) PopLastUserMessage(conversationId int) error {
 	_, err := d.db.Exec(
-		"DELETE FROM messages WHERE id = (SELECT id FROM messages WHERE role = 'user' AND conversation_id = $1 ORDER BY datetime DESC LIMIT 1)",
+		"DELETE FROM messages WHERE id = (SELECT id FROM messages WHERE role = 'user' AND conversation_id = $1 ORDER BY id DESC LIMIT 1)",
 		conversationId)
 	if err != nil {
 		return fmt.Errorf("pop last user message: %w", err)
@@ -77,7 +77,7 @@ func (d *Repository) PopLastUserMessage(conversationId int) error {
 // SelectFullConversation fetches all the messages of a conversation by its ID.
 func (d *Repository) SelectFullConversation(conversationId int) ([]repository.Message, error) {
 	var messages []repository.Message
-	err := d.db.Select(&messages, "SELECT role, thinking, content FROM messages WHERE conversation_id = $1 ORDER BY datetime", conversationId)
+	err := d.db.Select(&messages, "SELECT role, thinking, content FROM messages WHERE conversation_id = $1 ORDER BY id", conversationId)
 	if err != nil {
 		return nil, fmt.Errorf("get full conversation: %w", err)
 	}
@@ -88,7 +88,7 @@ func (d *Repository) SelectFullConversation(conversationId int) ([]repository.Me
 // AddTokenToLatestUserMessage updates the token count for the most recent user message in a conversation.
 func (d *Repository) AddTokenToLatestUserMessage(conversationId, tokenCount int) error {
 	_, err := d.db.Exec(
-		"UPDATE messages SET token_count = $1 WHERE id = (SELECT id FROM messages WHERE conversation_id = $2 AND role='user' ORDER BY datetime DESC LIMIT 1)",
+		"UPDATE messages SET token_count = $1 WHERE id = (SELECT id FROM messages WHERE conversation_id = $2 AND role='user' ORDER BY id DESC LIMIT 1)",
 		tokenCount,
 		conversationId)
 	if err != nil {
