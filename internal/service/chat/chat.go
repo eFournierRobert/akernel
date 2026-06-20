@@ -1,3 +1,4 @@
+// Package chat implements the business logic for chat operations and tool-call orchestration.
 package chat
 
 import (
@@ -7,7 +8,9 @@ import (
 	"akernel/internal/repository/message"
 	"akernel/internal/service"
 	"akernel/internal/service/ollama"
+	"akernel/internal/service/ollama/tools"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -34,7 +37,7 @@ func NewChatService(db *sqlx.DB, ollama ollama.Service) *Service {
 }
 
 // GeneratePromptAnswer takes a user prompt and generates an AI answer. Also creates a conversation if necessary.
-func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) (*dto.Answer, error) {
+func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) ([]dto.Answer, error) {
 	if modelIsValid, err := s.doesModelExist(ctx, prompt.Model); err != nil {
 		return nil, err
 	} else if !modelIsValid {
@@ -50,18 +53,28 @@ func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) 
 		return nil, err
 	}
 
-	history, err := s.fetchConversationHistory(conversationId)
-	if err != nil {
-		return nil, err
-	}
-
-	answer, err := s.ollamaService.PostChat(ctx, prompt.Model, history, true)
+	answer, err := s.getHistoryAndPostChat(ctx, conversationId, prompt)
 	if err != nil || ctx.Err() != nil {
 		if err = s.messageRepo.PopLastUserMessage(conversationId); err != nil {
 			return nil, err
 		}
 
 		return nil, err
+	}
+
+	if len(answer.Response.ToolCalls) > 0 {
+		if err = s.makeToolCalls(conversationId, answer.Response.ToolCalls); err != nil {
+			return nil, err
+		}
+
+		answer, err = s.getHistoryAndPostChat(ctx, conversationId, prompt)
+		if err != nil || ctx.Err() != nil {
+			if err = s.messageRepo.PopLastUserMessage(conversationId); err != nil {
+				return nil, err
+			}
+
+			return nil, err
+		}
 	}
 
 	if len(answer.Response.Content) > 0 {
@@ -71,11 +84,7 @@ func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) 
 		if err = s.messageRepo.AddTokenToLatestUserMessage(conversationId, answer.PromptTokenCount); err != nil {
 			return nil, err
 		}
-		return &dto.Answer{
-			Message:                answer.Response.Content,
-			ConversationId:         conversationId,
-			ConversationTokenCount: answer.TokenCount + answer.PromptTokenCount,
-		}, nil
+		return s.getAllMessagesAfterPrompt(conversationId, prompt.Message)
 	}
 
 	if err = s.messageRepo.PopLastUserMessage(conversationId); err != nil {
@@ -170,6 +179,22 @@ func (s *Service) insertPrompt(ctx context.Context, prompt *dto.Prompt) (int, er
 	return m.ConversationId, nil
 }
 
+// insertToolAnswer saves a single tool execution result as a message in the conversation.
+func (s *Service) insertToolAnswer(conversationId int, toolAnswer string) error {
+	m := repository.Message{
+		Role:           "tool",
+		Content:        toolAnswer,
+		ConversationId: conversationId,
+		DateTime:       time.Now(),
+	}
+
+	if err := s.messageRepo.InsertMessage(&m); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // fetchConversationHistory retrieves all messages for a conversation and converts them into the history format required by Ollama.
 func (s *Service) fetchConversationHistory(conversationId int) ([]ollama.HistoryMessage, error) {
 	messages, err := s.messageRepo.SelectMessagesOfConvo(conversationId)
@@ -186,4 +211,66 @@ func (s *Service) fetchConversationHistory(conversationId int) ([]ollama.History
 	}
 
 	return history, nil
+}
+
+// getHistoryAndPostChat retrieves the conversation history and sends it to Ollama for a response.
+func (s *Service) getHistoryAndPostChat(ctx context.Context, conversationId int, prompt *dto.Prompt) (ollama.MessageResponse, error) {
+	history, err := s.fetchConversationHistory(conversationId)
+	if err != nil {
+		return ollama.MessageResponse{}, err
+	}
+
+	answer, err := s.ollamaService.PostChat(ctx, prompt.Model, history, true)
+	if err != nil || ctx.Err() != nil {
+		if err = s.messageRepo.PopLastUserMessage(conversationId); err != nil {
+			return ollama.MessageResponse{}, err
+		}
+
+		return ollama.MessageResponse{}, err
+	}
+
+	return answer, err
+}
+
+// makeToolCalls iterates over the tool calls returned by Ollama, dispatches each through ToolCallRouter, and stores the results as messages.
+func (s *Service) makeToolCalls(conversationId int, toolCalls []tools.ToolCall) error {
+	toolCallJson, err := json.Marshal(toolCalls)
+	if err != nil {
+		return fmt.Errorf("generate prompt answer: %w", err)
+	}
+
+	if err = s.InsertAssistantAnswer(string(toolCallJson), 0, conversationId); err != nil {
+		return fmt.Errorf("generate prompt answer: %w", err)
+	}
+
+	for _, t := range toolCalls {
+		res := tools.ToolCallRouter(t)
+		if err = s.insertToolAnswer(conversationId, res); err != nil {
+			return fmt.Errorf("generate prompt answer: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// getAllMessagesAfterPrompt fetches all messages generated after the user's original prompt,
+// excluding the prompt itself.
+func (s *Service) getAllMessagesAfterPrompt(conversationId int, prompt string) ([]dto.Answer, error) {
+	messages, err := s.messageRepo.SelectAllMessagesAfterLastPrompt(conversationId, prompt)
+	if err != nil {
+		return nil, err
+	}
+	messages = messages[1:]
+
+	var dtoMessages []dto.Answer
+	for _, m := range messages {
+		dtoMessages = append(dtoMessages, dto.Answer{
+			Role:                   m.Role,
+			ConversationId:         m.ConversationId,
+			Message:                m.Content,
+			ConversationTokenCount: m.TokenCount,
+		})
+	}
+
+	return dtoMessages, nil
 }

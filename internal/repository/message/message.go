@@ -1,3 +1,4 @@
+// Package message provides database access methods for chat messages.
 package message
 
 import (
@@ -106,4 +107,16 @@ func (d *Repository) SelectLastAssistantMessage(conversationId int) (repository.
 	}
 
 	return message, nil
+}
+
+// SelectAllMessagesAfterLastPrompt retrieves all messages from a conversation that were created
+// on or after the most recent user message matching the given prompt text. This includes tool
+// call responses and subsequent assistant messages following the prompt.
+func (d *Repository) SelectAllMessagesAfterLastPrompt(conversationId int, prompt string) ([]repository.Message, error) {
+	var messages []repository.Message
+	err := d.db.Select(&messages, "SELECT role, content, token_count, conversation_id FROM messages WHERE id >= (SELECT MIN(id) FROM messages WHERE content = $1 AND role = 'user' AND conversation_id = $2) AND conversation_id = $2 ORDER BY id", prompt, conversationId)
+	if err != nil {
+		return nil, fmt.Errorf("select all messages after last prompt: %w", err)
+	}
+	return messages, nil
 }

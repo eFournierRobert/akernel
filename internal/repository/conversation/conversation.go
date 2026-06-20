@@ -1,3 +1,4 @@
+// Package conversation provides database access methods for conversation data.
 package conversation
 
 import (

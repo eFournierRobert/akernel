@@ -1,3 +1,4 @@
+// Package dto defines data transfer objects used between HTTP handlers and service layers.
 package dto
 
 // Prompt is the DTO for a received prompt.
@@ -9,6 +10,7 @@ type Prompt struct {
 
 // Answer is the DTO for an AI-generated answer.
 type Answer struct {
+	Role                   string `json:"role"`
 	ConversationId         int    `json:"conversationId"`
 	Message                string `json:"message"`
 	ConversationTokenCount int    `json:"conversationTokenCount"`

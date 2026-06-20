@@ -1,9 +1,10 @@
+// Package model implements the business logic for retrieving AI models from Ollama.
 package model
 
 import (
-	"akernel/internal/handlers/dto"
-	"akernel/internal/service/ollama"
-	"context"
+    "akernel/internal/handlers/dto"
+    "akernel/internal/service/ollama"
+    "context"
 )
 
 // Service is the service for AI model-related actions.
