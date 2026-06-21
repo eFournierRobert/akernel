@@ -44,7 +44,7 @@ func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) 
 		return nil, fmt.Errorf("asked for model %s: %w", prompt.Model, service.ErrModelNotFound)
 	}
 
-	if prompt.ConversationId < -1 || (prompt.ConversationId >= 1 && !s.convoRepo.DoesConversationExist(prompt.ConversationId)) {
+	if prompt.ConversationId < -1 || (prompt.ConversationId >= 0 && !s.convoRepo.DoesConversationExist(prompt.ConversationId)) {
 		return nil, fmt.Errorf("generate prompt answer: %w", service.ErrInvalidConversation)
 	}
 
@@ -55,7 +55,7 @@ func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) 
 
 	answer, err := s.getHistoryAndPostChat(ctx, conversationId, prompt)
 	if err != nil || ctx.Err() != nil {
-		if err = s.messageRepo.PopLastUserMessage(conversationId); err != nil {
+		if err := s.messageRepo.PopLastUserMessage(conversationId); err != nil {
 			return nil, err
 		}
 
@@ -69,7 +69,7 @@ func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) 
 
 		answer, err = s.getHistoryAndPostChat(ctx, conversationId, prompt)
 		if err != nil || ctx.Err() != nil {
-			if err = s.messageRepo.PopLastUserMessage(conversationId); err != nil {
+			if err := s.messageRepo.PopLastUserMessage(conversationId); err != nil {
 				return nil, err
 			}
 
@@ -224,7 +224,7 @@ func (s *Service) getHistoryAndPostChat(ctx context.Context, conversationId int,
 
 	answer, err := s.ollamaService.PostChat(ctx, prompt.Model, history, true)
 	if err != nil || ctx.Err() != nil {
-		if err = s.messageRepo.PopLastUserMessage(conversationId); err != nil {
+		if err := s.messageRepo.PopLastUserMessage(conversationId); err != nil {
 			return ollama.MessageResponse{}, err
 		}
 
