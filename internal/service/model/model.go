@@ -2,18 +2,26 @@
 package model
 
 import (
-    "akernel/internal/handlers/dto"
-    "akernel/internal/service/ollama"
-    "context"
+	"akernel/internal/handlers/dto"
+	"akernel/internal/service/ollama"
+	"context"
 )
+
+// bytesPerGB is how many bytes is in a gigabyte.
+const bytesPerGB = 1073741824
+
+// OllamaClient abstracts the Ollama service for model retrieval, allowing mocking in tests.
+type OllamaClient interface {
+	GetModels(ctx context.Context) (*ollama.Models, error)
+}
 
 // Service is the service for AI model-related actions.
 type Service struct {
-	ollama ollama.Service
+	ollama OllamaClient
 }
 
 // New creates a new Service that includes the given Ollama service.
-func New(ollama ollama.Service) Service {
+func New(ollama OllamaClient) Service {
 	return Service{
 		ollama,
 	}
@@ -40,5 +48,5 @@ func (s *Service) GetModels(ctx context.Context) ([]dto.Model, error) {
 
 // convertSizeToGB converts a model size from bytes to gigabytes.
 func convertSizeToGB(bytes int) float32 {
-	return float32(bytes) / float32(1073741824)
+	return float32(bytes) / float32(bytesPerGB)
 }
