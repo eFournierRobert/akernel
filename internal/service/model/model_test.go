@@ -19,6 +19,10 @@ func (m *mockOllamaClient) GetModels(_ context.Context) (*ollama.Models, error) 
 	return m.models, m.err
 }
 
+func (m *mockOllamaClient) PostChat(_ context.Context, _ string, _ []ollama.HistoryMessage, _ bool) (ollama.MessageResponse, error) {
+	return ollama.MessageResponse{}, nil
+}
+
 func TestGetModels_EmptyList(t *testing.T) {
 	svc := New(&mockOllamaClient{
 		models: &ollama.Models{ModelList: []ollama.Model{}},

@@ -19,11 +19,11 @@ import (
 type Service struct {
 	repository  conversation.Repository
 	messageRepo message.Repository
-	ollama      ollama.Service
+	ollama      service.OllamaClient
 }
 
 // New constructs a new Service implementation, initializing repositories and Ollama client.
-func New(db *sqlx.DB, ollamaService ollama.Service) Service {
+func New(db *sqlx.DB, ollamaService service.OllamaClient) Service {
 	return Service{
 		repository:  conversation.New(db),
 		messageRepo: message.New(db),

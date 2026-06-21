@@ -3,25 +3,20 @@ package model
 
 import (
 	"akernel/internal/handlers/dto"
-	"akernel/internal/service/ollama"
+	"akernel/internal/service"
 	"context"
 )
 
 // bytesPerGB is how many bytes is in a gigabyte.
 const bytesPerGB = 1073741824
 
-// OllamaClient abstracts the Ollama service for model retrieval, allowing mocking in tests.
-type OllamaClient interface {
-	GetModels(ctx context.Context) (*ollama.Models, error)
-}
-
 // Service is the service for AI model-related actions.
 type Service struct {
-	ollama OllamaClient
+	ollama service.OllamaClient
 }
 
 // New creates a new Service that includes the given Ollama service.
-func New(ollama OllamaClient) Service {
+func New(ollama service.OllamaClient) Service {
 	return Service{
 		ollama,
 	}

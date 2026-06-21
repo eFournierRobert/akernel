@@ -1,0 +1,12 @@
+package service
+
+import (
+	"akernel/internal/service/ollama"
+	"context"
+)
+
+// OllamaClient abstracts the Ollama service for model retrieval and chat, allowing mocking in tests.
+type OllamaClient interface {
+	GetModels(ctx context.Context) (*ollama.Models, error)
+	PostChat(ctx context.Context, modelName string, history []ollama.HistoryMessage, thinking bool) (ollama.MessageResponse, error)
+}
