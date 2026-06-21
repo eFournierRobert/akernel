@@ -10,42 +10,26 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
-
-	"github.com/adrg/xdg"
 )
 
 // ollamaBasePath is the base URL for the Ollama API.
-const ollamaBasePath = "http://localhost:11434/api"
+var ollamaBasePath = "http://localhost:11434/api"
 
 // Service provides a client for interacting with the Ollama AI service.
 type Service struct {
-	systemPrompt string
+	systemPrompt HistoryMessage
 }
 
 // New initializes a new Service by loading the system prompt from the configuration file.
-func New() (*Service, error) {
-	systemPromptPath, err := xdg.ConfigFile("akernel/system.md")
-	if err != nil {
-		return nil, err
-	}
-
-	f, err := os.Open(systemPromptPath)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	systemPrompt, err := io.ReadAll(f)
-	if err != nil {
-		return nil, err
-	}
-
+func New(systemPrompt string) *Service {
 	ollamaService := Service{
-		systemPrompt: string(systemPrompt),
+		systemPrompt: HistoryMessage{
+			Role:    "system",
+			Content: systemPrompt,
+		},
 	}
 
-	return &ollamaService, nil
+	return &ollamaService
 }
 
 // GetModels retrieves a list of available AI models from the Ollama service.
@@ -62,28 +46,28 @@ func (s *Service) GetModels(ctx context.Context) (*Models, error) {
 	}
 	defer res.Body.Close()
 
-	var models Models
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
 		return nil, fmt.Errorf("get models from ollama: %w", err)
 	}
 
-	err = json.Unmarshal(body, &models)
-	if err != nil {
-		return nil, fmt.Errorf("get models from ollama: %w", err)
+	if res.StatusCode == http.StatusOK {
+		var models Models
+		err = json.Unmarshal(body, &models)
+		if err != nil {
+			return nil, fmt.Errorf("get models from ollama: %w", err)
+		}
+
+		return &models, nil
 	}
 
-	return &models, nil
+	return nil, fmt.Errorf("get models from ollama: %w", errors.New(string(body)))
 }
 
 // PostChat sends a message along with conversation history to the specified Ollama model and returns the generated response.
 func (s *Service) PostChat(ctx context.Context, modelName string, history []HistoryMessage, thinking bool) (MessageResponse, error) {
-	systemPrompt := HistoryMessage{
-		Role:    "system",
-		Content: s.systemPrompt,
-	}
-
-	fullHistory := []HistoryMessage{systemPrompt}
+	fullHistory := make([]HistoryMessage, 1, len(history)+1)
+	fullHistory[0] = s.systemPrompt
 	fullHistory = append(fullHistory, history...)
 	body := Message{
 		Model:     modelName,
