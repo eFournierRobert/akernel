@@ -9,4 +9,5 @@ import (
 type OllamaClient interface {
 	GetModels(ctx context.Context) (*ollama.Models, error)
 	PostChat(ctx context.Context, modelName string, history []ollama.HistoryMessage, thinking bool) (ollama.MessageResponse, error)
+	GenerateConversationTitle(ctx context.Context, message, model string) (string, error)
 }

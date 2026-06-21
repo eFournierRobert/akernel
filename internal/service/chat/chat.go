@@ -22,11 +22,11 @@ import (
 type Service struct {
 	messageRepo   message.Repository
 	convoRepo     conversation.Repository
-	ollamaService ollama.Service
+	ollamaService service.OllamaClient
 }
 
 // NewChatService initializes a new instance of the Chat Service.
-func NewChatService(db *sqlx.DB, ollama ollama.Service) *Service {
+func NewChatService(db *sqlx.DB, ollama service.OllamaClient) *Service {
 	s := Service{
 		messageRepo:   message.New(db),
 		convoRepo:     conversation.New(db),

@@ -53,6 +53,10 @@ func (m *mockOllamaClient) PostChat(_ context.Context, _ string, _ []ollama.Hist
 	return m.response, m.err
 }
 
+func (m *mockOllamaClient) GenerateConversationTitle(_ context.Context, _ string, _ string) (string, error) {
+	return "", nil
+}
+
 func TestFetchConversations_Populated(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
