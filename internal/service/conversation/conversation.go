@@ -19,11 +19,11 @@ import (
 type Service struct {
 	repository  conversation.Repository
 	messageRepo message.Repository
-	ollama      ollama.Service
+	ollama      service.OllamaClient
 }
 
 // New constructs a new Service implementation, initializing repositories and Ollama client.
-func New(db *sqlx.DB, ollamaService ollama.Service) Service {
+func New(db *sqlx.DB, ollamaService service.OllamaClient) Service {
 	return Service{
 		repository:  conversation.New(db),
 		messageRepo: message.New(db),
@@ -38,11 +38,7 @@ func (s *Service) FetchConversations() ([]dto.Conversation, error) {
 		return nil, err
 	}
 
-	if conversations == nil {
-		return []dto.Conversation{}, nil
-	}
-
-	var conversationDto []dto.Conversation
+	conversationDto := make([]dto.Conversation, 0)
 	for _, c := range conversations {
 		conversationDto = append(conversationDto, dto.Conversation{
 			Id:    c.ID,
@@ -95,7 +91,7 @@ func (s *Service) CreateNewSummary(ctx context.Context, conversationId int, mode
 		TokenCount:     res.TokenCount,
 		ConversationId: conversationId,
 	}
-	if err = s.messageRepo.InsertMessage(&newSummary); err != nil {
+	if err = s.messageRepo.InsertMessage(newSummary); err != nil {
 		return err
 	}
 

@@ -9,6 +9,8 @@ Your primary responsibilities are:
 1. **Write documentation** — add `go doc`-compatible comments for all public and private types, functions, and methods across the codebase as well as package level docs.
 2. **Write unit tests** — when asked, use table-driven tests with the standard `testing` package. `github.com/stretchr/testify` is already a dependency. Be thorough and harsh: cover edge cases, error paths, nil inputs, boundary values, and failure scenarios — never test only the happy path. After writing tests, summarize any code changes that would benefit from refactoring and list which test failures could be resolved by those improvements.
 
+**Never modify production code unless explicitly told to do so.** If production changes are suggested during review, note them in writing but leave the source untouched.
+
 ## Build and run
 
 ```
@@ -32,7 +34,13 @@ internal/repository/ → sqlx DB access
 migrations/          → goose SQL migrations (run automatically on startup)
 ```
 
-No tests exist. No CI, linter, or formatter config — standard `gofmt` applies.
+Tests use table-driven and mock-based patterns from the standard `testing` package with `github.com/stretchr/testify`. A sample test invocation:
+
+```
+go test ./internal/service/model/...
+```
+
+No CI, linter, or formatter config configured. Standard gofmt applies.
 
 ## External dependency: Ollama
 
@@ -53,6 +61,10 @@ Adding a new tool requires: schema function + handler function + registration in
 SQLite with foreign keys enabled. Migrations auto-run on startup via goose. Schema lives in `migrations/*.sql`. To add a migration, write a new timestamped `.sql` file in `migrations/` — no manual command needed since it's invoked at startup.
 
 The `/database/` directory is git-ignored and holds the dev DB file.
+
+## Architecture notes
+
+This is intended as a single-user local daemon (e.g., systemd service). Do not add concurrency safeguards, multi-tenant logic, or auth beyond what's already present.
 
 ## Quirks
 

@@ -5,7 +5,6 @@ import (
 	"akernel/internal/handlers/dto"
 	"akernel/internal/service"
 	"akernel/internal/service/chat"
-	"akernel/internal/service/ollama"
 	"encoding/json"
 	"errors"
 	"io"
@@ -22,7 +21,7 @@ type Handler struct {
 }
 
 // New creates a new instance of Handler with the required services.
-func New(ollamaService ollama.Service, database *sqlx.DB) *Handler {
+func New(ollamaService service.OllamaClient, database *sqlx.DB) *Handler {
 	chatService := chat.NewChatService(database, ollamaService)
 
 	return &Handler{
@@ -77,7 +76,7 @@ func (h *Handler) GetFullConversation(w http.ResponseWriter, r *http.Request) {
 
 	convoIdStr := r.PathValue("id")
 	convoId, err := strconv.Atoi(convoIdStr)
-	if err != nil {
+	if err != nil || convoId < 1 {
 		log.Println(err)
 		w.WriteHeader(http.StatusBadRequest)
 		return

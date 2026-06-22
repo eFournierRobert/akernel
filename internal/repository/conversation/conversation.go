@@ -3,8 +3,6 @@ package conversation
 
 import (
 	"akernel/internal/repository"
-	"database/sql"
-	"errors"
 	"fmt"
 
 	"github.com/jmoiron/sqlx"
@@ -52,7 +50,7 @@ func (d *Repository) EnsureConversation(conversation *repository.Conversation) e
 func (d *Repository) DoesConversationExist(conversationId int) bool {
 	var convo repository.Conversation
 	err := d.db.Get(&convo, "SELECT id FROM conversations WHERE id = $1", conversationId)
-	if errors.Is(err, sql.ErrNoRows) {
+	if err != nil {
 		return false
 	}
 

@@ -22,11 +22,11 @@ import (
 type Service struct {
 	messageRepo   message.Repository
 	convoRepo     conversation.Repository
-	ollamaService ollama.Service
+	ollamaService service.OllamaClient
 }
 
 // NewChatService initializes a new instance of the Chat Service.
-func NewChatService(db *sqlx.DB, ollama ollama.Service) *Service {
+func NewChatService(db *sqlx.DB, ollama service.OllamaClient) *Service {
 	s := Service{
 		messageRepo:   message.New(db),
 		convoRepo:     conversation.New(db),
@@ -44,7 +44,7 @@ func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) 
 		return nil, fmt.Errorf("asked for model %s: %w", prompt.Model, service.ErrModelNotFound)
 	}
 
-	if prompt.ConversationId < -1 || (prompt.ConversationId >= 1 && !s.convoRepo.DoesConversationExist(prompt.ConversationId)) {
+	if prompt.ConversationId < -1 || (prompt.ConversationId >= 0 && !s.convoRepo.DoesConversationExist(prompt.ConversationId)) {
 		return nil, fmt.Errorf("generate prompt answer: %w", service.ErrInvalidConversation)
 	}
 
@@ -55,7 +55,7 @@ func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) 
 
 	answer, err := s.getHistoryAndPostChat(ctx, conversationId, prompt)
 	if err != nil || ctx.Err() != nil {
-		if err = s.messageRepo.PopLastUserMessage(conversationId); err != nil {
+		if err := s.messageRepo.PopLastUserMessage(conversationId); err != nil {
 			return nil, err
 		}
 
@@ -69,7 +69,7 @@ func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) 
 
 		answer, err = s.getHistoryAndPostChat(ctx, conversationId, prompt)
 		if err != nil || ctx.Err() != nil {
-			if err = s.messageRepo.PopLastUserMessage(conversationId); err != nil {
+			if err := s.messageRepo.PopLastUserMessage(conversationId); err != nil {
 				return nil, err
 			}
 
@@ -84,7 +84,7 @@ func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) 
 		if err = s.messageRepo.AddTokenToLatestUserMessage(conversationId, answer.PromptTokenCount); err != nil {
 			return nil, err
 		}
-		return s.getAllMessagesAfterPrompt(conversationId, prompt.Message)
+		return s.getAllMessagesAfterPrompt(conversationId, answer.PromptTokenCount, prompt.Message)
 	}
 
 	if err = s.messageRepo.PopLastUserMessage(conversationId); err != nil {
@@ -104,7 +104,7 @@ func (s *Service) InsertAssistantAnswer(thinking, answer string, tokenCount, con
 		TokenCount:     tokenCount,
 	}
 
-	return s.messageRepo.InsertMessage(&m)
+	return s.messageRepo.InsertMessage(m)
 }
 
 // GetConversation gets the conversation and returns an array of Message DTO.
@@ -174,7 +174,7 @@ func (s *Service) insertPrompt(ctx context.Context, prompt *dto.Prompt) (int, er
 		m.ConversationId = newConversation.ID
 	}
 
-	if err := s.messageRepo.InsertMessage(&m); err != nil {
+	if err := s.messageRepo.InsertMessage(m); err != nil {
 		return 0, err
 	}
 
@@ -190,7 +190,7 @@ func (s *Service) insertToolAnswer(conversationId int, toolAnswer string) error 
 		DateTime:       time.Now(),
 	}
 
-	if err := s.messageRepo.InsertMessage(&m); err != nil {
+	if err := s.messageRepo.InsertMessage(m); err != nil {
 		return err
 	}
 
@@ -224,7 +224,7 @@ func (s *Service) getHistoryAndPostChat(ctx context.Context, conversationId int,
 
 	answer, err := s.ollamaService.PostChat(ctx, prompt.Model, history, true)
 	if err != nil || ctx.Err() != nil {
-		if err = s.messageRepo.PopLastUserMessage(conversationId); err != nil {
+		if err := s.messageRepo.PopLastUserMessage(conversationId); err != nil {
 			return ollama.MessageResponse{}, err
 		}
 
@@ -257,13 +257,13 @@ func (s *Service) makeToolCalls(thinking string, conversationId int, toolCalls [
 
 // getAllMessagesAfterPrompt fetches all messages generated after the user's original prompt,
 // excluding the prompt itself.
-func (s *Service) getAllMessagesAfterPrompt(conversationId int, prompt string) ([]dto.Answer, error) {
+func (s *Service) getAllMessagesAfterPrompt(conversationId, promptTokenCount int, prompt string) ([]dto.Answer, error) {
 	messages, err := s.messageRepo.SelectAllMessagesAfterLastPrompt(conversationId, prompt)
 	if err != nil {
 		return nil, err
 	}
 
-	var dtoMessages []dto.Answer
+	dtoMessages := make([]dto.Answer, len(messages)-1)
 	for _, m := range messages {
 		dtoMessages = append(dtoMessages, dto.Answer{
 			Role:                   m.Role,
@@ -273,6 +273,8 @@ func (s *Service) getAllMessagesAfterPrompt(conversationId int, prompt string) (
 			ConversationTokenCount: m.TokenCount,
 		})
 	}
+
+	dtoMessages[len(dtoMessages)-1].ConversationTokenCount += promptTokenCount
 
 	return dtoMessages, nil
 }
