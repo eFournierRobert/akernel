@@ -32,9 +32,9 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	chatHandler := chat.New(*ollamaService, db)
+	chatHandler := chat.New(ollamaService, db)
 	modelHandler := model.New(*ollamaService)
-	conversationHandler := conversation.New(db, *ollamaService)
+	conversationHandler := conversation.New(db, ollamaService)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /chat", chatHandler.Chat)

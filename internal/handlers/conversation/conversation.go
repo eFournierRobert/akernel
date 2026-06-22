@@ -5,7 +5,6 @@ import (
 	"akernel/internal/handlers/dto"
 	"akernel/internal/service"
 	"akernel/internal/service/conversation"
-	"akernel/internal/service/ollama"
 	"encoding/json"
 	"errors"
 	"io"
@@ -22,7 +21,7 @@ type Handler struct {
 }
 
 // New creates a new working Handler.
-func New(db *sqlx.DB, ollamaService ollama.Service) Handler {
+func New(db *sqlx.DB, ollamaService service.OllamaClient) Handler {
 	return Handler{
 		service: conversation.New(db, ollamaService),
 	}
@@ -55,11 +54,8 @@ func (h *Handler) GetConversations(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) DeleteConversation(w http.ResponseWriter, r *http.Request) {
 	log.Println(r.URL.Path)
 
-	convoIdStr := r.PathValue("id")
-	convoId, err := strconv.Atoi(convoIdStr)
+	convoId, err := h.getConversationId(w, r)
 	if err != nil {
-		log.Println(err)
-		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
@@ -81,11 +77,8 @@ func (h *Handler) DeleteConversation(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) PostSummarize(w http.ResponseWriter, r *http.Request) {
 	log.Println(r.URL.Path)
 
-	convoIdStr := r.PathValue("id")
-	convoId, err := strconv.Atoi(convoIdStr)
+	convoId, err := h.getConversationId(w, r)
 	if err != nil {
-		log.Println(err)
-		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
@@ -113,4 +106,19 @@ func (h *Handler) PostSummarize(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+// getConversationId extracts and validates the conversation ID from the request path.
+// It returns a 400 status and non-nil error if the ID is missing, non-numeric, or less than 1.
+func (h *Handler) getConversationId(w http.ResponseWriter, r *http.Request) (int, error) {
+	convoIdStr := r.PathValue("id")
+	convoId, err := strconv.Atoi(convoIdStr)
+	if err != nil || convoId < 1 {
+		r.Body.Close()
+		log.Println(err)
+		w.WriteHeader(http.StatusBadRequest)
+		return -1, errors.New("invalid id")
+	}
+
+	return convoId, nil
 }
