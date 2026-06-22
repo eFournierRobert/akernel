@@ -84,7 +84,7 @@ func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) 
 		if err = s.messageRepo.AddTokenToLatestUserMessage(conversationId, answer.PromptTokenCount); err != nil {
 			return nil, err
 		}
-		return s.getAllMessagesAfterPrompt(conversationId, prompt.Message)
+		return s.getAllMessagesAfterPrompt(conversationId, answer.PromptTokenCount, prompt.Message)
 	}
 
 	if err = s.messageRepo.PopLastUserMessage(conversationId); err != nil {
@@ -257,13 +257,13 @@ func (s *Service) makeToolCalls(thinking string, conversationId int, toolCalls [
 
 // getAllMessagesAfterPrompt fetches all messages generated after the user's original prompt,
 // excluding the prompt itself.
-func (s *Service) getAllMessagesAfterPrompt(conversationId int, prompt string) ([]dto.Answer, error) {
+func (s *Service) getAllMessagesAfterPrompt(conversationId, promptTokenCount int, prompt string) ([]dto.Answer, error) {
 	messages, err := s.messageRepo.SelectAllMessagesAfterLastPrompt(conversationId, prompt)
 	if err != nil {
 		return nil, err
 	}
 
-	var dtoMessages []dto.Answer
+	dtoMessages := make([]dto.Answer, len(messages)-1)
 	for _, m := range messages {
 		dtoMessages = append(dtoMessages, dto.Answer{
 			Role:                   m.Role,
@@ -273,6 +273,8 @@ func (s *Service) getAllMessagesAfterPrompt(conversationId int, prompt string) (
 			ConversationTokenCount: m.TokenCount,
 		})
 	}
+
+	dtoMessages[len(dtoMessages)-1].ConversationTokenCount += promptTokenCount
 
 	return dtoMessages, nil
 }
