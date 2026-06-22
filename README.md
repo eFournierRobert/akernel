@@ -16,4 +16,4 @@ Main features of akernel:
 
 ## Documentation
 There's a full OpenAPI documentation in `openapi/doc.yaml` if you want to make an interface for it
-and there's a CLI example in `example/acli/` written in Rust.
+and there's a CLI example in `example/acli/`.
