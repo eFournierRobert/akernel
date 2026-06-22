@@ -33,7 +33,7 @@ func main() {
 	}
 
 	chatHandler := chat.New(ollamaService, db)
-	modelHandler := model.New(*ollamaService)
+	modelHandler := model.New(ollamaService)
 	conversationHandler := conversation.New(db, ollamaService)
 
 	mux := http.NewServeMux()
