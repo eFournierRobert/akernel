@@ -76,7 +76,7 @@ func (h *Handler) GetFullConversation(w http.ResponseWriter, r *http.Request) {
 
 	convoIdStr := r.PathValue("id")
 	convoId, err := strconv.Atoi(convoIdStr)
-	if err != nil {
+	if err != nil || convoId < 1 {
 		log.Println(err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
