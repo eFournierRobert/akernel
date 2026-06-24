@@ -263,7 +263,7 @@ func (s *Service) getAllMessagesAfterPrompt(conversationId, promptTokenCount int
 		return nil, err
 	}
 
-	dtoMessages := make([]dto.Answer, len(messages)-1)
+	var dtoMessages []dto.Answer
 	for _, m := range messages {
 		dtoMessages = append(dtoMessages, dto.Answer{
 			Role:                   m.Role,
