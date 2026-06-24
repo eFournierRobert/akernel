@@ -1,0 +1,9 @@
+[Unit]
+Description=lightweight HTTP daemon with state management and tools for Ollama
+
+[Service]
+ExecStart=/usr/bin/akernel
+Type=simple
+
+[Install]
+WantedBy=default.target

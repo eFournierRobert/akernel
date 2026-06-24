@@ -2,11 +2,16 @@
 package repository
 
 import (
+	"embed"
+
 	"github.com/adrg/xdg"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pressly/goose/v3"
 )
+
+//go:embed migrations
+var embedMigrations embed.FS
 
 // ConnectDB connects to SQLite, runs migrations, and sets the database path based on the isDev flag.
 func ConnectDB(isDev bool) (*sqlx.DB, error) {
@@ -29,7 +34,7 @@ func ConnectDB(isDev bool) (*sqlx.DB, error) {
 	db.SetMaxOpenConns(10)
 	db.SetMaxIdleConns(5)
 
-	goose.SetBaseFS(nil)
+	goose.SetBaseFS(embedMigrations)
 
 	if err = goose.SetDialect("sqlite3"); err != nil {
 		return nil, err
