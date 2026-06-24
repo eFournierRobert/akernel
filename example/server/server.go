@@ -64,10 +64,10 @@ func PostChat(conversationId int, model, message string) ([]ChatResponse, error)
 	}
 
 	resp, err := http.Post(buildUrl("/chat"), http.DetectContentType(body), bytes.NewReader(body))
-	defer resp.Body.Close()
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode == 404 {
 		return nil, errors.New("conversation or model was not found")

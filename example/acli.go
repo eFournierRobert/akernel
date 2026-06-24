@@ -52,6 +52,7 @@ func sendChat() {
 		return
 	}
 
+	fmt.Printf("\n--Conversation: %d--\n", responses[0].ConversationId)
 	for _, r := range responses {
 		fmt.Printf("Role: %s\n\t%s\n", r.Role, r.Message)
 	}

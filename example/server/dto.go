@@ -18,6 +18,7 @@ type ChatBody struct {
 }
 
 type ChatResponse struct {
-	Role    string `json:"role"`
-	Message string `json:"message"`
+	Role           string `json:"role"`
+	ConversationId int    `json:"conversationId"`
+	Message        string `json:"message"`
 }
