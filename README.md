@@ -1,19 +1,40 @@
-# Assistant Kernel
+# Assistant Kernel (akernel)
 
-Assistant kernel (akernel) is a minimal HTTP service, meant to run as a daemon, that lets you
-interact with Ollama. It manages conversations and has tools available to the AI model of your choice.
-It is front end agnostic so you can use any front end that implements the API.
+A minimal, resource-efficient HTTP daemon that adds state management and tools to Ollama written in Go.
 
-Since it is supposed to run as a daemon locally, it was made to take as little resources as possible.
-The conversation database is an SQLite database stored in `$XDG_DATA_HOME/akernel/akernel.db`.
+## Key Features
+- **Persistence**: Persistent chat history with SQLite
+- **Tool integration**: Ability to create and provide tools to the model
+- **System prompt support**: loaded from `$XDG_CONFIG_HOME/akernel/system.md`
+- **Lightweight** : Optimized to be a local daemon with minimal resource usage
+- **Frontend agnostic**: Fully documented OpenAPI spec for easy usage.
 
-## Features
-Main features of akernel:
-- Interaction with Ollama locally for AI inference
-- Conversation storage
-- Context summarization activated manually
-- Tools support
+## Quick Start
+**Ensure [Ollama](https://ollama.com/) is installed and running.**
+
+```bash
+# clone and run
+git clone https://codeberg.org/efournierrobert/akernel.git
+go build -o akernel cmd/main.go
+./akernel
+```
+
+## Example usage
+```bash
+# Start a new conversation using conversationId: -1
+curl -X POST http://localhost:50500/chat -d '{"model": "gemma4:31b-it-qat", "message": "Could you tell me what is 2 + 2?", "conversationId": -1}'
+
+# Response: [
+# {
+#   "role":"assistant",
+#   "conversationId":6,
+#   "message":"2 + 2 = 4",
+#   "thinking":"The user is asking a simple arithmetic question:...",
+#   "conversationTokenCount":178
+#  }
+# ]  
+```
 
 ## Documentation
-There's a full OpenAPI documentation in `openapi/doc.yaml` if you want to make an interface for it
-and there's a CLI example in `example/acli/`.
+- Full API specification is available at `openapi/doc.yaml`
+- Reference CLI implementation can be found in `example/acli.go`

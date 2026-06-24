@@ -19,10 +19,7 @@ func main() {
 	isDev := flag.Bool("dev", false, "If the user is in dev mode")
 	flag.Parse()
 	log.Println("Reading system prompt...")
-	systemPrompt, err := readSystemPrompt()
-	if err != nil {
-		log.Fatalln(err)
-	}
+	systemPrompt := readSystemPrompt()
 
 	log.Println("Starting akernel...")
 	ollamaService := ollama.New(systemPrompt)
@@ -51,22 +48,22 @@ func main() {
 	}
 }
 
-func readSystemPrompt() (string, error) {
+func readSystemPrompt() string {
 	systemPromptPath, err := xdg.ConfigFile("akernel/system.md")
 	if err != nil {
-		return "", err
+		return ""
 	}
 
 	f, err := os.Open(systemPromptPath)
 	if err != nil {
-		return "", err
+		return ""
 	}
 	defer f.Close()
 
 	systemPrompt, err := io.ReadAll(f)
 	if err != nil {
-		return "", err
+		return ""
 	}
 
-	return string(systemPrompt), nil
+	return string(systemPrompt)
 }
