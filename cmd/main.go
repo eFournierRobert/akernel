@@ -4,6 +4,7 @@ import (
 	"akernel/internal/handlers/chat"
 	"akernel/internal/handlers/conversation"
 	"akernel/internal/handlers/model"
+	"akernel/internal/middleware"
 	"akernel/internal/repository"
 	"akernel/internal/service/ollama"
 	"flag"
@@ -41,8 +42,10 @@ func main() {
 	mux.HandleFunc("DELETE /conversation/{id}", conversationHandler.DeleteConversation)
 	mux.HandleFunc("POST /conversation/{id}/summarize", conversationHandler.PostSummarize)
 
+	handler := middleware.CorsMiddleware(mux)
+
 	log.Println("Listening on localhost:50500")
-	err = http.ListenAndServe("localhost:50500", mux)
+	err = http.ListenAndServe("0.0.0.0:50500", handler)
 	if err != nil {
 		log.Fatalln(err)
 	}
