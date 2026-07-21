@@ -45,7 +45,7 @@ func main() {
 	handler := middleware.CorsMiddleware(mux)
 
 	log.Println("Listening on localhost:50500")
-	err = http.ListenAndServe("localhost:50500", handler)
+	err = http.ListenAndServe("0.0.0.0:50500", handler)
 	if err != nil {
 		log.Fatalln(err)
 	}
