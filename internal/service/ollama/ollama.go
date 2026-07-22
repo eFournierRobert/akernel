@@ -121,6 +121,15 @@ func (s *Service) GenerateConversationTitle(ctx context.Context, message, model 
 	return answer.Response.Content, nil
 }
 
+func (s *Service) GetModelId(modelName string) string {
+	for _, m := range s.models {
+		if m.Name == modelName {
+			return m.RealName
+		}
+	}
+	return ""
+}
+
 // buildPath constructs a full URL for the Ollama API endpoints.
 func buildPath(path string) string {
 	return fmt.Sprintf("%s%s", ollamaBasePath, path)

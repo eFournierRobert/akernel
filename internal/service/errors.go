@@ -11,3 +11,5 @@ var ErrInvalidConversation = errors.New("invalid conversation")
 
 // ErrConversationDoesNotExist indicates that no conversation could be found for the given ID.
 var ErrConversationDoesNotExist = errors.New("conversation does not exist")
+
+var ErrModelDoesNotExist = errors.New("model does not exist")
