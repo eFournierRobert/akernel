@@ -1,3 +1,4 @@
+// Package ollama defines the types used by the ollama client.
 package ollama
 
 import (
@@ -6,9 +7,9 @@ import (
 
 // Model represents metadata for an AI model available in Ollama.
 type Model struct {
-	Name        string
-	Description string
-	RealName    string
+	Name        string // user-facing nickname shown in the UI
+	Description string // human-readable description of the model's capabilities
+	RealName    string // actual Ollama model ID used in API requests
 }
 
 // HistoryMessage represents a single message within a conversation history, including its role and content.

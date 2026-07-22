@@ -22,7 +22,7 @@ type Service struct {
 	models       []Model
 }
 
-// New initializes a new Service by loading the system prompt from the configuration file.
+// New creates a new Ollama service with a pre-loaded system prompt and configured models.
 func New(systemPrompt string, configModels []config.Model) *Service {
 	var models []Model
 	for _, m := range configModels {
@@ -44,7 +44,7 @@ func New(systemPrompt string, configModels []config.Model) *Service {
 	return &ollamaService
 }
 
-// GetModels retrieves a list of available AI models from the Ollama service.
+// GetModels returns the configured list of AI models.
 func (s *Service) GetModels() []Model {
 	return s.models
 }
@@ -121,6 +121,7 @@ func (s *Service) GenerateConversationTitle(ctx context.Context, message, model 
 	return answer.Response.Content, nil
 }
 
+// GetModelId returns the real Ollama model ID for a given nickname, or empty string if not found.
 func (s *Service) GetModelId(modelName string) string {
 	for _, m := range s.models {
 		if m.Name == modelName {

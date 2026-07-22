@@ -159,7 +159,7 @@ func (s *Service) insertPrompt(ctx context.Context, prompt *dto.Prompt) (int, er
 	if m.ConversationId == -1 {
 		modelId := s.ollamaService.GetModelId(prompt.Model)
 		if modelId == "" {
-			return 0, service.ErrModelDoesNotExist
+			return 0, service.ErrModelNotFound
 		}
 
 		title, err := s.ollamaService.GenerateConversationTitle(ctx, m.Content, modelId)
@@ -226,7 +226,7 @@ func (s *Service) getHistoryAndPostChat(ctx context.Context, conversationId int,
 
 	modelId := s.ollamaService.GetModelId(prompt.Model)
 	if modelId == "" {
-		return ollama.MessageResponse{}, service.ErrModelDoesNotExist
+		return ollama.MessageResponse{}, service.ErrModelNotFound
 	}
 
 	answer, err := s.ollamaService.PostChat(ctx, modelId, history, true)

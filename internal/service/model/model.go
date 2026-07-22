@@ -1,4 +1,4 @@
-// Package model implements the business logic for retrieving AI models from Ollama.
+// Package model implements the business logic for retrieving configured AI models.
 package model
 
 import (
@@ -6,9 +6,6 @@ import (
 	"akernel/internal/service"
 	"context"
 )
-
-// bytesPerGB is how many bytes is in a gigabyte.
-const bytesPerGB = 1073741824
 
 // Service is the service for AI model-related actions.
 type Service struct {

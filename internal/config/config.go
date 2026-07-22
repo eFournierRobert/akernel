@@ -1,3 +1,5 @@
+// Package config handles reading application configuration from XDG paths,
+// including the TOML config file and the system prompt markdown file.
 package config
 
 import (
@@ -8,23 +10,27 @@ import (
 	"github.com/adrg/xdg"
 )
 
+// Model maps a user-facing nickname to an actual Ollama model ID with a description.
 type Model struct {
 	Nickname    string
 	Id          string
 	Description string
 }
 
+// TomlConfig mirrors the shape of config.toml for decoding via github.com/BurntSushi/toml.
 type TomlConfig struct {
 	Ollama struct {
 		Models []Model
 	}
 }
 
+// Config bundles all startup configuration consumed by main.
 type Config struct {
 	SystemPrompt string
 	OllamaModels []Model
 }
 
+// ReadConfig loads the system prompt and TOML config, returning a ready-to-use Config.
 func ReadConfig() (Config, error) {
 	sysPrompt := readSystemPrompt()
 	tomlConfig, err := readTomlConfig()
@@ -38,6 +44,7 @@ func ReadConfig() (Config, error) {
 	}, nil
 }
 
+// readTomlConfig decodes the TOML configuration file at $XDG_CONFIG_HOME/akernel/config.toml.
 func readTomlConfig() (TomlConfig, error) {
 	tomlConfigPath, err := xdg.ConfigFile("akernel/config.toml")
 
@@ -46,6 +53,7 @@ func readTomlConfig() (TomlConfig, error) {
 	return config, err
 }
 
+// readSystemPrompt reads $XDG_CONFIG_HOME/akernel/system.md and returns its contents.
 func readSystemPrompt() string {
 	systemPromptPath, err := xdg.ConfigFile("akernel/system.md")
 	if err != nil {
