@@ -1,4 +1,4 @@
-// Package model implements the business logic for retrieving AI models from Ollama.
+// Package model implements the business logic for retrieving configured AI models.
 package model
 
 import (
@@ -6,9 +6,6 @@ import (
 	"akernel/internal/service"
 	"context"
 )
-
-// bytesPerGB is how many bytes is in a gigabyte.
-const bytesPerGB = 1073741824
 
 // Service is the service for AI model-related actions.
 type Service struct {
@@ -24,24 +21,15 @@ func New(ollama service.OllamaClient) Service {
 
 // GetModels returns a list of available AI models.
 func (s *Service) GetModels(ctx context.Context) ([]dto.Model, error) {
-	modelList, err := s.ollama.GetModels(ctx)
-	if err != nil {
-		return nil, err
-	}
+	modelList := s.ollama.GetModels()
 
 	var dtoModelList []dto.Model
-	for _, model := range modelList.ModelList {
+	for _, model := range modelList {
 		dtoModelList = append(dtoModelList, dto.Model{
-			Name:  model.Name,
-			Model: model.Model,
-			Size:  convertSizeToGB(model.Size),
+			Name:        model.Name,
+			Description: model.Description,
 		})
 	}
 
 	return dtoModelList, nil
-}
-
-// convertSizeToGB converts a model size from bytes to gigabytes.
-func convertSizeToGB(bytes int) float32 {
-	return float32(bytes) / float32(bytesPerGB)
 }

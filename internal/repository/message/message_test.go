@@ -19,7 +19,7 @@ func newTestDB(t *testing.T) *sqlx.DB {
 	err = goose.SetDialect("sqlite3")
 	require.NoError(t, err)
 
-	err = goose.Up(db.DB, "../../../migrations")
+	err = goose.Up(db.DB, "../migrations")
 	require.NoError(t, err)
 
 	_, err = db.Exec("PRAGMA foreign_keys = ON")

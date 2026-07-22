@@ -1,0 +1,302 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="ALL" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="fbf46fc0-0674-4d16-9aae-971389ed258f" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/config/config.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/config/config.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/service/ollama/models.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/service/ollama/models.go" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="OpenAPI" />
+        <option value="Go File" />
+      </list>
+    </option>
+  </component>
+  <component name="GOROOT" url="file:///usr/lib/go" />
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="HttpClientOnboardingState">{
+  &quot;isOnboardingCommentShown&quot;: true
+}</component>
+  <component name="McpProjectServerCommands">
+    <commands />
+    <urls />
+  </component>
+  <component name="NextEditCompletionFeaturesState">
+    <decayedCancelled>
+      <entry key="MS100" value="1.8272514052168352" />
+      <entry key="MS500" value="5.080745340115871" />
+      <entry key="S2" value="11.51433548647736" />
+      <entry key="S5" value="20.409009142991753" />
+      <entry key="S10" value="26.600427657921305" />
+      <entry key="S30" value="32.41485918048074" />
+      <entry key="S60" value="34.14401099858391" />
+      <entry key="M2" value="35.268786513348694" />
+      <entry key="M5" value="50.99598224590566" />
+      <entry key="M10" value="115.47753717426188" />
+      <entry key="M15" value="180.72160944914438" />
+      <entry key="M30" value="328.4560204212856" />
+      <entry key="H1" value="582.0913487024183" />
+      <entry key="H2" value="1053.1285881261672" />
+      <entry key="H4" value="1907.9928105758956" />
+      <entry key="D1" value="7394.524319098823" />
+      <entry key="W1" value="12017.041602782916" />
+    </decayedCancelled>
+    <decayedSelected>
+      <entry key="MS100" value="0.0" />
+      <entry key="MS500" value="0.0" />
+      <entry key="S2" value="8.678227400967735E-114" />
+      <entry key="S5" value="8.053985785705654E-46" />
+      <entry key="S10" value="3.9184135876680087E-23" />
+      <entry key="S30" value="5.3619111977916946E-8" />
+      <entry key="S60" value="3.296622561726541E-4" />
+      <entry key="M2" value="0.028675097177801586" />
+      <entry key="M5" value="0.6017463554200184" />
+      <entry key="M10" value="1.9678503555820286" />
+      <entry key="M15" value="3.128557369354008" />
+      <entry key="M30" value="6.8837858294778576" />
+      <entry key="H1" value="16.20148612533274" />
+      <entry key="H2" value="36.174332890272126" />
+      <entry key="H4" value="91.51065121455808" />
+      <entry key="D1" value="706.1368540627899" />
+      <entry key="W1" value="1322.5502686295026" />
+    </decayedSelected>
+    <decayedShown>
+      <entry key="MS100" value="1.796952959051351" />
+      <entry key="MS500" value="5.061069281652486" />
+      <entry key="S2" value="11.502994320710153" />
+      <entry key="S5" value="20.40044073199209" />
+      <entry key="S10" value="26.594673687693167" />
+      <entry key="S30" value="32.41247184784086" />
+      <entry key="S60" value="34.14307156458194" />
+      <entry key="M2" value="35.2965208045874" />
+      <entry key="M5" value="51.59306431595841" />
+      <entry key="M10" value="117.43617424095424" />
+      <entry key="M15" value="183.83968771958254" />
+      <entry key="M30" value="335.32775646639925" />
+      <entry key="H1" value="598.2792243307231" />
+      <entry key="H2" value="1089.2891322070698" />
+      <entry key="H4" value="1999.4881922836016" />
+      <entry key="D1" value="8100.644515966222" />
+      <entry key="W1" value="13339.587451400874" />
+    </decayedShown>
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 4,
+  &quot;fromUser&quot;: false
+}</component>
+  <component name="ProjectId" id="3Ea389qzr9nWI1Cqqm2ddJJUJwX" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;DefaultGoTemplateProperty&quot;: &quot;Go File&quot;,
+    &quot;Go Build.go build akernel/cmd.executor&quot;: &quot;Run&quot;,
+    &quot;Go Build.go build cmd/.executor&quot;: &quot;Run&quot;,
+    &quot;Go Build.go build locassist/cmd.executor&quot;: &quot;Run&quot;,
+    &quot;Go Test.TestGeneratePromptAnswer_WithToolCalls_Success in akernel/internal/service/chat.executor&quot;: &quot;Run&quot;,
+    &quot;Go Test.akernel.executor&quot;: &quot;Run&quot;,
+    &quot;Go Test.go test akernel/internal/handlers/chat (1).executor&quot;: &quot;Run&quot;,
+    &quot;Go Test.go test akernel/internal/handlers/chat.executor&quot;: &quot;Run&quot;,
+    &quot;Go Test.go test akernel/internal/handlers/conversation.executor&quot;: &quot;Run&quot;,
+    &quot;Go Test.go test akernel/internal/handlers/model.executor&quot;: &quot;Run&quot;,
+    &quot;Go Test.go test akernel/internal/repository/conversation.executor&quot;: &quot;Run&quot;,
+    &quot;Go Test.go test akernel/internal/repository/message.executor&quot;: &quot;Run&quot;,
+    &quot;Go Test.go test akernel/internal/service/chat.executor&quot;: &quot;Run&quot;,
+    &quot;Go Test.go test akernel/internal/service/conversation.executor&quot;: &quot;Run&quot;,
+    &quot;Go Test.go test akernel/internal/service/model.executor&quot;: &quot;Run&quot;,
+    &quot;Go Test.go test akernel/internal/service/ollama.executor&quot;: &quot;Run&quot;,
+    &quot;Go Test.go test akernel/internal/service/ollama/tools.executor&quot;: &quot;Run&quot;,
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.GoLinterPluginOnboardingV2&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.GoLinterPluginStorageMigration&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.GoOptimizationToolWindowEnableInLayout.v333333&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.MCP Project settings loaded&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.go.analysis.ui.options.defaults&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.go.formatter.settings.were.checked&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.go.modules.go.list.on.any.changes.was.set&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
+    &quot;datagrid.heatmap.switchedByDefault&quot;: &quot;false&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;28-abstract-models&quot;,
+    &quot;go.sdk.automatically.set&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/home/elliott/prog/akernel&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;go.vgo&quot;
+  }
+}</component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$" />
+      <recent name="$PROJECT_DIR$/cmd" />
+      <recent name="$PROJECT_DIR$/internal/service" />
+      <recent name="$PROJECT_DIR$/internal/service/chat" />
+      <recent name="$PROJECT_DIR$/internal/handlers/dto" />
+    </key>
+  </component>
+  <component name="RunManager" selected="Go Test.akernel">
+    <configuration name="go build akernel/cmd" type="GoApplicationRunConfiguration" factoryName="Go Application" nameIsGenerated="true">
+      <module name="akernel" />
+      <working_directory value="$PROJECT_DIR$" />
+      <parameters value="-dev" />
+      <kind value="PACKAGE" />
+      <package value="akernel/cmd" />
+      <directory value="$PROJECT_DIR$" />
+      <auto_managed_config_id value="$PROJECT_DIR$/cmd" />
+      <method v="2" />
+    </configuration>
+    <configuration name="go build example/" type="GoApplicationRunConfiguration" factoryName="Go Application" nameIsGenerated="true">
+      <module name="akernel" />
+      <working_directory value="$PROJECT_DIR$" />
+      <kind value="PACKAGE" />
+      <package value="akernel/example" />
+      <directory value="$PROJECT_DIR$" />
+      <auto_managed_config_id value="$PROJECT_DIR$/example" />
+      <method v="2" />
+    </configuration>
+    <configuration name="akernel" type="GoTestRunConfiguration" factoryName="Go Test">
+      <module name="akernel" />
+      <working_directory value="$PROJECT_DIR$" />
+      <kind value="DIRECTORY" />
+      <package value="akernel" />
+      <directory value="$PROJECT_DIR$" />
+      <filePath value="$PROJECT_DIR$" />
+      <framework value="gotest" />
+      <pattern value="./internal/..." />
+      <method v="2" />
+    </configuration>
+    <configuration name="go test akernel/internal/handlers/chat (1)" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+      <module name="akernel" />
+      <working_directory value="$PROJECT_DIR$/internal/handlers/chat" />
+      <root_directory value="$PROJECT_DIR$" />
+      <kind value="PACKAGE" />
+      <package value="akernel/internal/handlers/chat" />
+      <directory value="$PROJECT_DIR$" />
+      <filePath value="$PROJECT_DIR$" />
+      <framework value="gotest" />
+      <method v="2" />
+    </configuration>
+    <configuration name="go test akernel/internal/handlers/chat" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+      <module name="locassist" />
+      <working_directory value="$PROJECT_DIR$/internal/handlers/chat" />
+      <root_directory value="$PROJECT_DIR$" />
+      <kind value="PACKAGE" />
+      <package value="akernel/internal/handlers/chat" />
+      <directory value="$PROJECT_DIR$" />
+      <filePath value="$PROJECT_DIR$" />
+      <framework value="gotest" />
+      <method v="2" />
+    </configuration>
+    <configuration name="go test akernel/internal/handlers/conversation" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+      <module name="locassist" />
+      <working_directory value="$PROJECT_DIR$/internal/handlers/conversation" />
+      <root_directory value="$PROJECT_DIR$" />
+      <kind value="PACKAGE" />
+      <package value="akernel/internal/handlers/conversation" />
+      <directory value="$PROJECT_DIR$" />
+      <filePath value="$PROJECT_DIR$" />
+      <framework value="gotest" />
+      <method v="2" />
+    </configuration>
+    <configuration name="go test akernel/internal/handlers/model" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+      <module name="locassist" />
+      <working_directory value="$PROJECT_DIR$/internal/handlers/model" />
+      <root_directory value="$PROJECT_DIR$" />
+      <kind value="PACKAGE" />
+      <package value="akernel/internal/handlers/model" />
+      <directory value="$PROJECT_DIR$" />
+      <filePath value="$PROJECT_DIR$" />
+      <framework value="gotest" />
+      <method v="2" />
+    </configuration>
+    <configuration name="go test akernel/internal/service/chat" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+      <module name="locassist" />
+      <working_directory value="$PROJECT_DIR$/internal/service/chat" />
+      <root_directory value="$PROJECT_DIR$" />
+      <kind value="PACKAGE" />
+      <package value="akernel/internal/service/chat" />
+      <directory value="$PROJECT_DIR$" />
+      <filePath value="$PROJECT_DIR$" />
+      <framework value="gotest" />
+      <method v="2" />
+    </configuration>
+    <list>
+      <item itemvalue="Go Build.go build akernel/cmd" />
+      <item itemvalue="Go Build.go build example/" />
+      <item itemvalue="Go Test.akernel" />
+      <item itemvalue="Go Test.go test akernel/internal/handlers/chat (1)" />
+      <item itemvalue="Go Test.go test akernel/internal/handlers/chat" />
+      <item itemvalue="Go Test.go test akernel/internal/handlers/conversation" />
+      <item itemvalue="Go Test.go test akernel/internal/handlers/model" />
+      <item itemvalue="Go Test.go test akernel/internal/service/chat" />
+    </list>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Go Test.go test akernel/internal/handlers/chat (1)" />
+        <item itemvalue="Go Test.go test akernel/internal/service/chat" />
+        <item itemvalue="Go Test.go test akernel/internal/handlers/model" />
+        <item itemvalue="Go Test.go test akernel/internal/handlers/conversation" />
+        <item itemvalue="Go Test.go test akernel/internal/handlers/chat" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-gosdk-63c95d513abe-9addb268e56c-org.jetbrains.plugins.go.sharedIndexes.bundled-GO-262.8665.270" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="fbf46fc0-0674-4d16-9aae-971389ed258f" name="Changes" comment="" />
+      <created>1780402690879</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1780402690879</updated>
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="VgoModernizerVersionTracker">
+    <upgrades>
+      <map>
+        <entry key="$PROJECT_DIR$/go.mod">
+          <value>
+            <VersionUpgradeInfo>
+              <version>1.26.3</version>
+              <timestamp>1780602548022</timestamp>
+            </VersionUpgradeInfo>
+          </value>
+        </entry>
+      </map>
+    </upgrades>
+  </component>
+  <component name="XDebuggerManager">
+    <watches-manager>
+      <configuration name="GoApplicationRunConfiguration">
+        <watch expression="*(*&quot;akernel/internal/service/ollama.HistoryMessage&quot;)(44034358979984)" />
+      </configuration>
+    </watches-manager>
+  </component>
+</project>

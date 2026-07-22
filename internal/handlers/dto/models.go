@@ -25,9 +25,8 @@ type Conversation struct {
 
 // Model is the DTO for AI model information.
 type Model struct {
-	Name  string  `json:"name"`
-	Model string  `json:"model"`
-	Size  float32 `json:"size"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
 }
 
 // Message is the DTO for a message.

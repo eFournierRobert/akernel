@@ -22,12 +22,15 @@ func newTestMux(handler Handler) http.Handler {
 }
 
 type mockOllamaClient struct {
-	models *ollama.Models
-	err    error
+	models []ollama.Model
 }
 
-func (m *mockOllamaClient) GetModels(_ context.Context) (*ollama.Models, error) {
-	return m.models, m.err
+func (m *mockOllamaClient) GetModels() []ollama.Model {
+	return m.models
+}
+
+func (m *mockOllamaClient) GetModelId(_ string) string {
+	return ""
 }
 
 func (m *mockOllamaClient) PostChat(_ context.Context, _ string, _ []ollama.HistoryMessage, _ bool) (ollama.MessageResponse, error) {
@@ -41,10 +44,10 @@ func (m *mockOllamaClient) GenerateConversationTitle(_ context.Context, _ string
 func TestGetModels_SuccessWithResults(t *testing.T) {
 	h := Handler{
 		service: modelservice.New(&mockOllamaClient{
-			models: &ollama.Models{ModelList: []ollama.Model{
-				{Name: "llama3.2", Model: "llama3.2:latest", Size: 1073741824},
-				{Name: "gemma2", Model: "gemma2:27b", Size: 2914605824},
-			}},
+			models: []ollama.Model{
+				{Name: "llama3.2", Description: "A small model"},
+				{Name: "gemma2", Description: "A larger model"},
+			},
 		}),
 	}
 	mux := newTestMux(h)
@@ -66,7 +69,7 @@ func TestGetModels_SuccessWithResults(t *testing.T) {
 func TestGetModels_EmptyList(t *testing.T) {
 	h := Handler{
 		service: modelservice.New(&mockOllamaClient{
-			models: &ollama.Models{ModelList: []ollama.Model{}},
+			models: []ollama.Model{},
 		}),
 	}
 	mux := newTestMux(h)
@@ -80,21 +83,6 @@ func TestGetModels_EmptyList(t *testing.T) {
 	var result []dto.Model
 	require.NoError(t, decodeBody(rec.Body, &result))
 	assert.Empty(t, result)
-}
-
-func TestGetModels_ServiceError(t *testing.T) {
-	h := Handler{
-		service: modelservice.New(&mockOllamaClient{
-			err: assert.AnError,
-		}),
-	}
-	mux := newTestMux(h)
-
-	req := httptest.NewRequest(http.MethodGet, "/models", nil)
-	rec := httptest.NewRecorder()
-	mux.ServeHTTP(rec, req)
-
-	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
 func decodeBody(r interface{ String() string }, target interface{}) error {

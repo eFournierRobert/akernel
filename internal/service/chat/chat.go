@@ -38,7 +38,7 @@ func NewChatService(db *sqlx.DB, ollama service.OllamaClient) *Service {
 
 // GeneratePromptAnswer takes a user prompt and generates an AI answer. Also creates a conversation if necessary.
 func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) ([]dto.Answer, error) {
-	if modelIsValid, err := s.doesModelExist(ctx, prompt.Model); err != nil {
+	if modelIsValid, err := s.doesModelExist(prompt.Model); err != nil {
 		return nil, err
 	} else if !modelIsValid {
 		return nil, fmt.Errorf("asked for model %s: %w", prompt.Model, service.ErrModelNotFound)
@@ -135,13 +135,10 @@ func (s *Service) GetConversation(conversationId int) ([]dto.Message, error) {
 }
 
 // doesModelExist verifies that a model is downloaded.
-func (s *Service) doesModelExist(ctx context.Context, modelName string) (bool, error) {
-	modelList, err := s.ollamaService.GetModels(ctx)
-	if err != nil {
-		return false, err
-	}
+func (s *Service) doesModelExist(modelName string) (bool, error) {
+	modelList := s.ollamaService.GetModels()
 
-	for _, model := range modelList.ModelList {
+	for _, model := range modelList {
 		if model.Name == modelName {
 			return true, nil
 		}
@@ -160,7 +157,12 @@ func (s *Service) insertPrompt(ctx context.Context, prompt *dto.Prompt) (int, er
 	}
 
 	if m.ConversationId == -1 {
-		title, err := s.ollamaService.GenerateConversationTitle(ctx, m.Content, prompt.Model)
+		modelId := s.ollamaService.GetModelId(prompt.Model)
+		if modelId == "" {
+			return 0, service.ErrModelNotFound
+		}
+
+		title, err := s.ollamaService.GenerateConversationTitle(ctx, m.Content, modelId)
 		if err != nil {
 			return 0, err
 		}
@@ -222,7 +224,12 @@ func (s *Service) getHistoryAndPostChat(ctx context.Context, conversationId int,
 		return ollama.MessageResponse{}, err
 	}
 
-	answer, err := s.ollamaService.PostChat(ctx, prompt.Model, history, true)
+	modelId := s.ollamaService.GetModelId(prompt.Model)
+	if modelId == "" {
+		return ollama.MessageResponse{}, service.ErrModelNotFound
+	}
+
+	answer, err := s.ollamaService.PostChat(ctx, modelId, history, true)
 	if err != nil || ctx.Err() != nil {
 		if err := s.messageRepo.PopLastUserMessage(conversationId); err != nil {
 			return ollama.MessageResponse{}, err

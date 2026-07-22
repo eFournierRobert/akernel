@@ -29,7 +29,7 @@ func newTestDB(t *testing.T) *sqlx.DB {
 	err = goose.SetDialect("sqlite3")
 	require.NoError(t, err)
 
-	err = goose.Up(db.DB, "../../../migrations")
+	err = goose.Up(db.DB, "../../repository/migrations")
 	require.NoError(t, err)
 
 	_, err = db.Exec("PRAGMA foreign_keys = ON")
@@ -57,14 +57,15 @@ func insertMessage(t *testing.T, db *sqlx.DB, role, content string, conversation
 }
 
 type mockOllamaClient struct {
-	models            *ollama.Models
+	models            []ollama.Model
 	postChatResponses []ollama.MessageResponse
 	postChatIndex     int
 	titleGenResponse  string
+	modelId           string
 }
 
-func (m *mockOllamaClient) GetModels(_ context.Context) (*ollama.Models, error) {
-	return m.models, nil
+func (m *mockOllamaClient) GetModels() []ollama.Model {
+	return m.models
 }
 
 func (m *mockOllamaClient) PostChat(_ context.Context, _ string, _ []ollama.HistoryMessage, _ bool) (ollama.MessageResponse, error) {
@@ -80,10 +81,14 @@ func (m *mockOllamaClient) GenerateConversationTitle(_ context.Context, _ string
 	return m.titleGenResponse, nil
 }
 
+func (m *mockOllamaClient) GetModelId(_ string) string {
+	return m.modelId
+}
+
 type errOllamaClient struct{}
 
-func (m *errOllamaClient) GetModels(_ context.Context) (*ollama.Models, error) {
-	return &ollama.Models{ModelList: []ollama.Model{{Name: "llama3.2"}}}, nil
+func (m *errOllamaClient) GetModels() []ollama.Model {
+	return []ollama.Model{{Name: "llama3.2"}}
 }
 
 func (m *errOllamaClient) PostChat(_ context.Context, _ string, _ []ollama.HistoryMessage, _ bool) (ollama.MessageResponse, error) {
@@ -92,6 +97,10 @@ func (m *errOllamaClient) PostChat(_ context.Context, _ string, _ []ollama.Histo
 
 func (m *errOllamaClient) GenerateConversationTitle(_ context.Context, _ string, _ string) (string, error) {
 	return "", nil
+}
+
+func (m *errOllamaClient) GetModelId(_ string) string {
+	return "llama3.2:latest"
 }
 
 func newTestMux(handler *Handler) http.Handler {
@@ -108,7 +117,8 @@ func TestChat_HappyPath_NewConversation(t *testing.T) {
 	defer db.Close()
 
 	mock := &mockOllamaClient{
-		models: &ollama.Models{ModelList: []ollama.Model{{Name: "llama3.2"}}},
+		models: []ollama.Model{{Name: "llama3.2"}},
+		modelId: "llama3.2:latest",
 		titleGenResponse: "My New Chat",
 		postChatResponses: []ollama.MessageResponse{{
 			Response: ollama.HistoryMessage{
@@ -156,7 +166,7 @@ func TestChat_ModelNotFound(t *testing.T) {
 	defer db.Close()
 
 	mock := &mockOllamaClient{
-		models: &ollama.Models{ModelList: []ollama.Model{{Name: "llama3.2"}}},
+		models: []ollama.Model{{Name: "llama3.2"}},
 	}
 
 	handler := New(mock, db)
@@ -175,10 +185,10 @@ func TestChat_InvalidConversationID(t *testing.T) {
 	defer db.Close()
 
 	cid := insertConversation(t, db, "valid")
-	_ = cid // conversation exists in DB but a different ID will be used below
+	_ = cid
 
 	mock := &mockOllamaClient{
-		models: &ollama.Models{ModelList: []ollama.Model{{Name: "llama3.2"}}},
+		models: []ollama.Model{{Name: "llama3.2"}},
 	}
 
 	handler := New(mock, db)
@@ -322,7 +332,6 @@ func TestGetFullConversation_GenericError(t *testing.T) {
 
 	cid := insertConversation(t, db, "error test")
 
-	// Drop messages table so DoesConversationExist passes but SelectFullConversation fails
 	_, err := db.Exec("DROP TABLE messages")
 	require.NoError(t, err)
 
