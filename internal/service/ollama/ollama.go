@@ -2,6 +2,7 @@
 package ollama
 
 import (
+	"akernel/internal/config"
 	"akernel/internal/service/ollama/tools"
 	"bytes"
 	"context"
@@ -18,50 +19,34 @@ var ollamaBasePath = "http://localhost:11434/api"
 // Service provides a client for interacting with the Ollama AI service.
 type Service struct {
 	systemPrompt HistoryMessage
+	models       []Model
 }
 
 // New initializes a new Service by loading the system prompt from the configuration file.
-func New(systemPrompt string) *Service {
+func New(systemPrompt string, configModels []config.Model) *Service {
+	var models []Model
+	for _, m := range configModels {
+		models = append(models, Model{
+			Name:        m.Nickname,
+			Description: m.Description,
+			RealName:    m.Id,
+		})
+	}
+
 	ollamaService := Service{
 		systemPrompt: HistoryMessage{
 			Role:    "system",
 			Content: systemPrompt,
 		},
+		models: models,
 	}
 
 	return &ollamaService
 }
 
 // GetModels retrieves a list of available AI models from the Ollama service.
-func (s *Service) GetModels(ctx context.Context) (*Models, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, buildPath("/tags"), nil)
-	if err != nil {
-		return nil, fmt.Errorf("get models from ollama: %w", err)
-	}
-
-	client := http.Client{}
-	res, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("get models from ollama: %w", err)
-	}
-	defer res.Body.Close()
-
-	body, err := io.ReadAll(res.Body)
-	if err != nil {
-		return nil, fmt.Errorf("get models from ollama: %w", err)
-	}
-
-	if res.StatusCode == http.StatusOK {
-		var models Models
-		err = json.Unmarshal(body, &models)
-		if err != nil {
-			return nil, fmt.Errorf("get models from ollama: %w", err)
-		}
-
-		return &models, nil
-	}
-
-	return nil, fmt.Errorf("get models from ollama: %w", errors.New(string(body)))
+func (s *Service) GetModels() []Model {
+	return s.models
 }
 
 // PostChat sends a message along with conversation history to the specified Ollama model and returns the generated response.

@@ -6,14 +6,9 @@ import (
 
 // Model represents metadata for an AI model available in Ollama.
 type Model struct {
-	Name  string `json:"name"`
-	Model string `json:"model"`
-	Size  int    `json:"size"`
-}
-
-// Models contain a list of AI models retrieved from the Ollama API.
-type Models struct {
-	ModelList []Model `json:"models"`
+	Name        string
+	Description string
+	RealName    string
 }
 
 // HistoryMessage represents a single message within a conversation history, including its role and content.

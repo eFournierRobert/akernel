@@ -1,6 +1,7 @@
 package main
 
 import (
+	"akernel/internal/config"
 	"akernel/internal/handlers/chat"
 	"akernel/internal/handlers/conversation"
 	"akernel/internal/handlers/model"
@@ -8,22 +9,21 @@ import (
 	"akernel/internal/repository"
 	"akernel/internal/service/ollama"
 	"flag"
-	"io"
 	"log"
 	"net/http"
-	"os"
-
-	"github.com/adrg/xdg"
 )
 
 func main() {
 	isDev := flag.Bool("dev", false, "If the user is in dev mode")
 	flag.Parse()
-	log.Println("Reading system prompt...")
-	systemPrompt := readSystemPrompt()
+	log.Println("Reading configurations...")
+	config, err := config.ReadConfig()
+	if err != nil {
+		log.Fatalln(err)
+	}
 
 	log.Println("Starting akernel...")
-	ollamaService := ollama.New(systemPrompt)
+	ollamaService := ollama.New(config.SystemPrompt, config.OllamaModels)
 
 	db, err := repository.ConnectDB(*isDev)
 	if err != nil {
@@ -49,24 +49,4 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-}
-
-func readSystemPrompt() string {
-	systemPromptPath, err := xdg.ConfigFile("akernel/system.md")
-	if err != nil {
-		return ""
-	}
-
-	f, err := os.Open(systemPromptPath)
-	if err != nil {
-		return ""
-	}
-	defer f.Close()
-
-	systemPrompt, err := io.ReadAll(f)
-	if err != nil {
-		return ""
-	}
-
-	return string(systemPrompt)
 }
