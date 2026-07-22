@@ -17,7 +17,7 @@ type Model struct {
 	Description string
 }
 
-// TomlConfig mirrors the shape of config.toml for decoding via github.com/BurntSushi/toml.
+// TomlConfig mirrors the shape of config.toml.
 type TomlConfig struct {
 	Ollama struct {
 		Models []Model
