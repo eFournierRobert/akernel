@@ -1,6 +1,7 @@
 package ollama
 
 import (
+	"akernel/internal/config"
 	"akernel/internal/service/ollama/tools"
 	"context"
 	"encoding/json"
@@ -25,57 +26,60 @@ func setupTestServer(t *testing.T, handler http.HandlerFunc) *httptest.Server {
 	return server
 }
 
+func newWithModels() *Service {
+	return New("system", []config.Model{
+		{Nickname: "llama3.2", Id: "llama3.2:latest", Description: "A small model"},
+		{Nickname: "gemma", Id: "gemma:27b", Description: "A larger model"},
+	})
+}
+
 func TestBuildPath(t *testing.T) {
 	assert.Equal(t, "http://localhost:11434/api/tags", buildPath("/tags"))
 	assert.Equal(t, "http://localhost:11434/api/chat", buildPath("/chat"))
 }
 
 func TestNew(t *testing.T) {
-	svc := New("test system prompt")
+	svc := New("test system prompt", []config.Model{})
 	assert.Equal(t, "system", svc.systemPrompt.Role)
 	assert.Equal(t, "test system prompt", svc.systemPrompt.Content)
+	assert.Empty(t, svc.models)
 }
 
-func TestGetModels_Success(t *testing.T) {
-	setupTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(Models{
-			ModelList: []Model{
-				{Name: "llama3.2"},
-				{Name: "gemma"},
-			},
-		})
+func TestNew_ModelConversion(t *testing.T) {
+	svc := New("system", []config.Model{
+		{Nickname: "small", Id: "llama3.2:latest", Description: "A small model"},
 	})
 
-	svc := New("system")
-	models, err := svc.GetModels(context.Background())
-
-	require.NoError(t, err)
-	assert.Len(t, models.ModelList, 2)
-	assert.Equal(t, "llama3.2", models.ModelList[0].Name)
-	assert.Equal(t, "gemma", models.ModelList[1].Name)
+	require.Len(t, svc.models, 1)
+	assert.Equal(t, "small", svc.models[0].Name)
+	assert.Equal(t, "llama3.2:latest", svc.models[0].RealName)
+	assert.Equal(t, "A small model", svc.models[0].Description)
 }
 
-func TestGetModels_Non200(t *testing.T) {
-	setupTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprint(w, "internal server error")
-	})
+func TestGetModels(t *testing.T) {
+	svc := newWithModels()
+	models := svc.GetModels()
 
-	svc := New("system")
-	_, err := svc.GetModels(context.Background())
-	assert.Error(t, err)
+	assert.Len(t, models, 2)
+	assert.Equal(t, "llama3.2", models[0].Name)
+	assert.Equal(t, "gemma", models[1].Name)
 }
 
-func TestGetModels_BadJSON(t *testing.T) {
-	setupTestServer(t, func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprint(w, "{invalid json")
-	})
+func TestGetModelId_Found(t *testing.T) {
+	svc := newWithModels()
 
-	svc := New("system")
-	_, err := svc.GetModels(context.Background())
-	assert.Error(t, err)
+	id := svc.GetModelId("llama3.2")
+	assert.Equal(t, "llama3.2:latest", id)
+
+	id = svc.GetModelId("gemma")
+	assert.Equal(t, "gemma:27b", id)
+}
+
+func TestGetModelId_NotFound(t *testing.T) {
+	svc := newWithModels()
+
+	id := svc.GetModelId("nonexistent")
+	assert.Equal(t, "", id)
 }
 
 func TestPostChat_Success(t *testing.T) {
@@ -96,7 +100,7 @@ func TestPostChat_Success(t *testing.T) {
 		})
 	})
 
-	svc := New("you are helpful")
+	svc := newWithModels()
 	resp, err := svc.PostChat(context.Background(), "llama3.2", []HistoryMessage{
 		{Role: "user", Content: "hello"},
 	}, false)
@@ -114,7 +118,7 @@ func TestPostChat_RequestShape(t *testing.T) {
 		json.NewEncoder(w).Encode(MessageResponse{Done: true})
 	})
 
-	svc := New("you are helpful")
+	svc := newWithModels()
 	_, err := svc.PostChat(context.Background(), "llama3.2", []HistoryMessage{
 		{Role: "user", Content: "hello"},
 	}, true)
@@ -124,7 +128,7 @@ func TestPostChat_RequestShape(t *testing.T) {
 	assert.Equal(t, "llama3.2", receivedBody.Model)
 	assert.Len(t, receivedBody.Messages, 2)
 	assert.Equal(t, "system", receivedBody.Messages[0].Role)
-	assert.Equal(t, "you are helpful", receivedBody.Messages[0].Content)
+	assert.Equal(t, "system", receivedBody.Messages[0].Content)
 	assert.Equal(t, "user", receivedBody.Messages[1].Role)
 	assert.Equal(t, "hello", receivedBody.Messages[1].Content)
 
@@ -144,7 +148,7 @@ func TestPostChat_ThinkingFalse(t *testing.T) {
 		json.NewEncoder(w).Encode(MessageResponse{Done: true})
 	})
 
-	svc := New("system")
+	svc := newWithModels()
 	_, err := svc.PostChat(context.Background(), "llama3.2", nil, false)
 	require.NoError(t, err)
 	assert.False(t, receivedBody.Think)
@@ -156,7 +160,7 @@ func TestPostChat_Non200(t *testing.T) {
 		fmt.Fprint(w, "model not found")
 	})
 
-	svc := New("system")
+	svc := newWithModels()
 	_, err := svc.PostChat(context.Background(), "nonexistent", nil, false)
 	assert.Error(t, err)
 }
@@ -167,7 +171,7 @@ func TestPostChat_BadJSONOn200(t *testing.T) {
 		fmt.Fprint(w, "not json")
 	})
 
-	svc := New("system")
+	svc := newWithModels()
 	_, err := svc.PostChat(context.Background(), "llama3.2", nil, false)
 	assert.Error(t, err)
 }
@@ -184,7 +188,7 @@ func TestGenerateConversationTitle_Success(t *testing.T) {
 		})
 	})
 
-	svc := New("system")
+	svc := newWithModels()
 	title, err := svc.GenerateConversationTitle(context.Background(), "hello world", "llama3.2")
 
 	require.NoError(t, err)
@@ -203,7 +207,7 @@ func TestGenerateConversationTitle_EmptyResponse(t *testing.T) {
 		})
 	})
 
-	svc := New("system")
+	svc := newWithModels()
 	_, err := svc.GenerateConversationTitle(context.Background(), "hello world", "llama3.2")
 	assert.Error(t, err)
 }
@@ -214,7 +218,7 @@ func TestGenerateConversationTitle_PostChatFails(t *testing.T) {
 		fmt.Fprint(w, "server error")
 	})
 
-	svc := New("system")
+	svc := newWithModels()
 	_, err := svc.GenerateConversationTitle(context.Background(), "hello world", "llama3.2")
 	assert.Error(t, err)
 }

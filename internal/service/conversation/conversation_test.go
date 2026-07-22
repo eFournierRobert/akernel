@@ -23,7 +23,7 @@ func newTestDB(t *testing.T) *sqlx.DB {
 	err = goose.SetDialect("sqlite3")
 	require.NoError(t, err)
 
-	err = goose.Up(db.DB, "../../../migrations")
+	err = goose.Up(db.DB, "../../repository/migrations")
 	require.NoError(t, err)
 
 	_, err = db.Exec("PRAGMA foreign_keys = ON")
@@ -45,8 +45,8 @@ type mockOllamaClient struct {
 	err      error
 }
 
-func (m *mockOllamaClient) GetModels(_ context.Context) (*ollama.Models, error) {
-	return &ollama.Models{}, nil
+func (m *mockOllamaClient) GetModels() []ollama.Model {
+	return []ollama.Model{}
 }
 
 func (m *mockOllamaClient) PostChat(_ context.Context, _ string, _ []ollama.HistoryMessage, _ bool) (ollama.MessageResponse, error) {
@@ -55,6 +55,10 @@ func (m *mockOllamaClient) PostChat(_ context.Context, _ string, _ []ollama.Hist
 
 func (m *mockOllamaClient) GenerateConversationTitle(_ context.Context, _ string, _ string) (string, error) {
 	return "", nil
+}
+
+func (m *mockOllamaClient) GetModelId(_ string) string {
+	return ""
 }
 
 func TestFetchConversations_Populated(t *testing.T) {
