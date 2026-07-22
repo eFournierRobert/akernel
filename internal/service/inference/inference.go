@@ -71,16 +71,11 @@ func (s *Service) PostChat(ctx context.Context, model string, history []HistoryM
 }
 
 func (s *Service) GenerateConversationTitle(ctx context.Context, message, model string) (string, error) {
-	fullModel, err := s.GetModel(model)
-	if err != nil {
-		return "", err
-	}
-
 	titlePrompt := fmt.Sprintf("Generate a small conversation title for this message. Do not make propositions. Just answer with the title. Message: %s", message)
 
 	history := []HistoryMessage{{Role: "user", Content: titlePrompt}}
 
-	answer, err := s.PostChat(ctx, fullModel.Id, history, false)
+	answer, err := s.PostChat(ctx, model, history, false)
 	if err != nil {
 		return "", fmt.Errorf("error while generating title: %w", err)
 	}
@@ -95,6 +90,7 @@ func (s *Service) convertOllamaHistoryToInferenceFormat(h ollama.HistoryMessage)
 	return HistoryMessage{
 		Role:      h.Role,
 		Content:   h.Content,
+		Thinking:  h.Thinking,
 		ToolCalls: h.ToolCalls,
 	}
 }
