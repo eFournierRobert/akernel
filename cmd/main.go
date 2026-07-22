@@ -7,7 +7,6 @@ import (
 	"akernel/internal/handlers/model"
 	"akernel/internal/middleware"
 	"akernel/internal/repository"
-	"akernel/internal/service/ollama"
 	"flag"
 	"log"
 	"net/http"
@@ -23,16 +22,15 @@ func main() {
 	}
 
 	log.Println("Starting akernel...")
-	ollamaService := ollama.New(config.SystemPrompt, config.OllamaModels)
 
 	db, err := repository.ConnectDB(*isDev)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	chatHandler := chat.New(ollamaService, db)
-	modelHandler := model.New(ollamaService)
-	conversationHandler := conversation.New(db, ollamaService)
+	chatHandler := chat.New(config, db)
+	modelHandler := model.New(config)
+	conversationHandler := conversation.New(db, config)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /chat", chatHandler.Chat)

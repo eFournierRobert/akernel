@@ -2,12 +2,13 @@
 package conversation
 
 import (
+	"akernel/internal/config"
 	"akernel/internal/handlers/dto"
 	"akernel/internal/repository"
 	"akernel/internal/repository/conversation"
 	"akernel/internal/repository/message"
 	"akernel/internal/service"
-	"akernel/internal/service/ollama"
+	"akernel/internal/service/inference"
 	"context"
 	"errors"
 	"fmt"
@@ -19,15 +20,15 @@ import (
 type Service struct {
 	repository  conversation.Repository
 	messageRepo message.Repository
-	ollama      service.OllamaClient
+	inference   inference.Service
 }
 
 // New constructs a new Service implementation, initializing repositories and Ollama client.
-func New(db *sqlx.DB, ollamaService service.OllamaClient) Service {
+func New(db *sqlx.DB, config config.Config) Service {
 	return Service{
 		repository:  conversation.New(db),
 		messageRepo: message.New(db),
-		ollama:      ollamaService,
+		inference:   inference.New(config),
 	}
 }
 
@@ -72,12 +73,12 @@ func (s *Service) CreateNewSummary(ctx context.Context, conversationId int, mode
 		return err
 	}
 
-	fullConvo = append(fullConvo, ollama.HistoryMessage{
+	fullConvo = append(fullConvo, inference.HistoryMessage{
 		Role:    "user",
 		Content: "Summarize the whole conversation into one concise message.",
 	})
 
-	res, err := s.ollama.PostChat(ctx, modelName, fullConvo, true)
+	res, err := s.inference.PostChat(ctx, modelName, fullConvo, true)
 	if err != nil {
 		return err
 	}
@@ -108,15 +109,15 @@ func (s *Service) CreateNewSummary(ctx context.Context, conversationId int, mode
 }
 
 // selectFullConvoIntoOllamaHistoryMessages retrieves all messages for a conversation ID and maps them into ollama.HistoryMessage format.
-func (s *Service) selectFullConvoIntoOllamaHistoryMessages(conversationId int) ([]ollama.HistoryMessage, error) {
+func (s *Service) selectFullConvoIntoOllamaHistoryMessages(conversationId int) ([]inference.HistoryMessage, error) {
 	messages, err := s.messageRepo.SelectFullConversation(conversationId)
 	if err != nil {
 		return nil, err
 	}
 
-	var fullConvo []ollama.HistoryMessage
+	var fullConvo []inference.HistoryMessage
 	for _, m := range messages {
-		fullConvo = append(fullConvo, ollama.HistoryMessage{
+		fullConvo = append(fullConvo, inference.HistoryMessage{
 			Role:    m.Role,
 			Content: m.Content,
 		})

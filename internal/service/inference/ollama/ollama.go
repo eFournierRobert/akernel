@@ -3,7 +3,7 @@ package ollama
 
 import (
 	"akernel/internal/config"
-	"akernel/internal/service/ollama/tools"
+	"akernel/internal/service/inference/tools"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -18,45 +18,20 @@ var ollamaBasePath = "http://localhost:11434/api"
 
 // Service provides a client for interacting with the Ollama AI service.
 type Service struct {
-	systemPrompt HistoryMessage
-	models       []Model
 }
 
 // New creates a new Ollama service with a pre-loaded system prompt and configured models.
 func New(systemPrompt string, configModels []config.Model) *Service {
-	var models []Model
-	for _, m := range configModels {
-		models = append(models, Model{
-			Name:        m.Nickname,
-			Description: m.Description,
-			RealName:    m.Id,
-		})
-	}
-
-	ollamaService := Service{
-		systemPrompt: HistoryMessage{
-			Role:    "system",
-			Content: systemPrompt,
-		},
-		models: models,
-	}
+	ollamaService := Service{}
 
 	return &ollamaService
 }
 
-// GetModels returns the configured list of AI models.
-func (s *Service) GetModels() []Model {
-	return s.models
-}
-
 // PostChat sends a message along with conversation history to the specified Ollama model and returns the generated response.
 func (s *Service) PostChat(ctx context.Context, modelName string, history []HistoryMessage, thinking bool) (MessageResponse, error) {
-	fullHistory := make([]HistoryMessage, 1, len(history)+1)
-	fullHistory[0] = s.systemPrompt
-	fullHistory = append(fullHistory, history...)
 	body := Message{
 		Model:     modelName,
-		Messages:  fullHistory,
+		Messages:  history,
 		Think:     thinking,
 		KeepAlive: "5m",
 		Stream:    false,
@@ -102,33 +77,6 @@ func (s *Service) PostChat(ctx context.Context, modelName string, history []Hist
 		return MessageResponse{}, fmt.Errorf("post chat: %w", err)
 	}
 	return MessageResponse{}, fmt.Errorf("post chat: %w", errors.New(string(b)))
-}
-
-// GenerateConversationTitle asks the smallest available AI model to generate a short title for a given message.
-func (s *Service) GenerateConversationTitle(ctx context.Context, message, model string) (string, error) {
-	titlePrompt := fmt.Sprintf("Generate a small conversation title for this message. Do not make propositions. Just answer with the title. Message: %s", message)
-
-	history := []HistoryMessage{{Role: "user", Content: titlePrompt}}
-
-	answer, err := s.PostChat(ctx, model, history, false)
-	if err != nil {
-		return "", fmt.Errorf("error while generating title: %w", err)
-	}
-
-	if len(answer.Response.Content) == 0 {
-		return "", fmt.Errorf("error while generating title: %w", errors.New("empty response when requested for a title"))
-	}
-	return answer.Response.Content, nil
-}
-
-// GetModelId returns the real Ollama model ID for a given nickname, or empty string if not found.
-func (s *Service) GetModelId(modelName string) string {
-	for _, m := range s.models {
-		if m.Name == modelName {
-			return m.RealName
-		}
-	}
-	return ""
 }
 
 // buildPath constructs a full URL for the Ollama API endpoints.

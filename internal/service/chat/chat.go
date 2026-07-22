@@ -2,13 +2,14 @@
 package chat
 
 import (
+	"akernel/internal/config"
 	"akernel/internal/handlers/dto"
 	"akernel/internal/repository"
 	"akernel/internal/repository/conversation"
 	"akernel/internal/repository/message"
 	"akernel/internal/service"
-	"akernel/internal/service/ollama"
-	"akernel/internal/service/ollama/tools"
+	"akernel/internal/service/inference"
+	"akernel/internal/service/inference/tools"
 	"context"
 	"encoding/json"
 	"errors"
@@ -20,17 +21,17 @@ import (
 
 // Service handles the business logic for chat operations, acting as an intermediary between the handlers and the database.
 type Service struct {
-	messageRepo   message.Repository
-	convoRepo     conversation.Repository
-	ollamaService service.OllamaClient
+	messageRepo message.Repository
+	convoRepo   conversation.Repository
+	inference   inference.Service
 }
 
 // NewChatService initializes a new instance of the Chat Service.
-func NewChatService(db *sqlx.DB, ollama service.OllamaClient) *Service {
+func NewChatService(db *sqlx.DB, config config.Config) *Service {
 	s := Service{
-		messageRepo:   message.New(db),
-		convoRepo:     conversation.New(db),
-		ollamaService: ollama,
+		messageRepo: message.New(db),
+		convoRepo:   conversation.New(db),
+		inference:   inference.New(config),
 	}
 
 	return &s
@@ -136,7 +137,7 @@ func (s *Service) GetConversation(conversationId int) ([]dto.Message, error) {
 
 // doesModelExist verifies that a model is downloaded.
 func (s *Service) doesModelExist(modelName string) (bool, error) {
-	modelList := s.ollamaService.GetModels()
+	modelList := s.inference.GetModels()
 
 	for _, model := range modelList {
 		if model.Name == modelName {
@@ -157,12 +158,7 @@ func (s *Service) insertPrompt(ctx context.Context, prompt *dto.Prompt) (int, er
 	}
 
 	if m.ConversationId == -1 {
-		modelId := s.ollamaService.GetModelId(prompt.Model)
-		if modelId == "" {
-			return 0, service.ErrModelNotFound
-		}
-
-		title, err := s.ollamaService.GenerateConversationTitle(ctx, m.Content, modelId)
+		title, err := s.inference.GenerateConversationTitle(ctx, m.Content, prompt.Model)
 		if err != nil {
 			return 0, err
 		}
@@ -200,15 +196,15 @@ func (s *Service) insertToolAnswer(conversationId int, toolAnswer string) error 
 }
 
 // fetchConversationHistory retrieves all messages for a conversation and converts them into the history format required by Ollama.
-func (s *Service) fetchConversationHistory(conversationId int) ([]ollama.HistoryMessage, error) {
+func (s *Service) fetchConversationHistory(conversationId int) ([]inference.HistoryMessage, error) {
 	messages, err := s.messageRepo.SelectMessagesOfConvo(conversationId)
 	if err != nil {
 		return nil, err
 	}
 
-	var history []ollama.HistoryMessage
+	var history []inference.HistoryMessage
 	for _, m := range messages {
-		history = append(history, ollama.HistoryMessage{
+		history = append(history, inference.HistoryMessage{
 			Role:    m.Role,
 			Content: m.Content,
 		})
@@ -218,24 +214,19 @@ func (s *Service) fetchConversationHistory(conversationId int) ([]ollama.History
 }
 
 // getHistoryAndPostChat retrieves the conversation history and sends it to Ollama for a response.
-func (s *Service) getHistoryAndPostChat(ctx context.Context, conversationId int, prompt *dto.Prompt) (ollama.MessageResponse, error) {
+func (s *Service) getHistoryAndPostChat(ctx context.Context, conversationId int, prompt *dto.Prompt) (inference.MessageResponse, error) {
 	history, err := s.fetchConversationHistory(conversationId)
 	if err != nil {
-		return ollama.MessageResponse{}, err
+		return inference.MessageResponse{}, err
 	}
 
-	modelId := s.ollamaService.GetModelId(prompt.Model)
-	if modelId == "" {
-		return ollama.MessageResponse{}, service.ErrModelNotFound
-	}
-
-	answer, err := s.ollamaService.PostChat(ctx, modelId, history, true)
+	answer, err := s.inference.PostChat(ctx, prompt.Model, history, true)
 	if err != nil || ctx.Err() != nil {
 		if err := s.messageRepo.PopLastUserMessage(conversationId); err != nil {
-			return ollama.MessageResponse{}, err
+			return inference.MessageResponse{}, err
 		}
 
-		return ollama.MessageResponse{}, err
+		return inference.MessageResponse{}, err
 	}
 
 	return answer, err

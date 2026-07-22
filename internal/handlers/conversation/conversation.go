@@ -2,6 +2,7 @@
 package conversation
 
 import (
+	"akernel/internal/config"
 	"akernel/internal/handlers/dto"
 	"akernel/internal/service"
 	"akernel/internal/service/conversation"
@@ -21,9 +22,9 @@ type Handler struct {
 }
 
 // New creates a new working Handler.
-func New(db *sqlx.DB, ollamaService service.OllamaClient) Handler {
+func New(db *sqlx.DB, config config.Config) Handler {
 	return Handler{
-		service: conversation.New(db, ollamaService),
+		service: conversation.New(db, config),
 	}
 }
 

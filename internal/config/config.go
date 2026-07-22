@@ -12,22 +12,21 @@ import (
 
 // Model maps a user-facing nickname to an actual Ollama model ID with a description.
 type Model struct {
-	Nickname    string
+	Name        string
 	Id          string
 	Description string
+	Provider    string
 }
 
 // TomlConfig mirrors the shape of config.toml.
 type TomlConfig struct {
-	Ollama struct {
-		Models []Model
-	}
+	Models []Model
 }
 
 // Config bundles all startup configuration consumed by main.
 type Config struct {
 	SystemPrompt string
-	OllamaModels []Model
+	Models       []Model
 }
 
 // ReadConfig loads the system prompt and TOML config, returning a ready-to-use Config.
@@ -40,7 +39,7 @@ func ReadConfig() (Config, error) {
 
 	return Config{
 		SystemPrompt: sysPrompt,
-		OllamaModels: tomlConfig.Ollama.Models,
+		Models:       tomlConfig.Models,
 	}, nil
 }
 

@@ -2,7 +2,7 @@
 package model
 
 import (
-	"akernel/internal/service"
+	"akernel/internal/config"
 	"akernel/internal/service/model"
 	"encoding/json"
 	"log"
@@ -15,9 +15,9 @@ type Handler struct {
 }
 
 // New creates a new working Handler.
-func New(ollamaService service.OllamaClient) Handler {
+func New(config config.Config) Handler {
 	return Handler{
-		service: model.New(ollamaService),
+		service: model.New(config),
 	}
 }
 

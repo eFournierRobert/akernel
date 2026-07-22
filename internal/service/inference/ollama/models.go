@@ -1,16 +1,7 @@
 // Package ollama defines the types used by the ollama client.
 package ollama
 
-import (
-	"akernel/internal/service/ollama/tools"
-)
-
-// Model represents metadata for an AI model available in Ollama.
-type Model struct {
-	Name        string
-	Description string
-	RealName    string
-}
+import "akernel/internal/service/inference/tools"
 
 // HistoryMessage represents a single message within a conversation history, including its role and content.
 type HistoryMessage struct {
