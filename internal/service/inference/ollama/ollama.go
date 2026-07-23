@@ -2,7 +2,6 @@
 package ollama
 
 import (
-	"akernel/internal/config"
 	"akernel/internal/service/inference/tools"
 	"bytes"
 	"context"
@@ -20,11 +19,11 @@ var ollamaBasePath = "http://localhost:11434/api"
 type Service struct {
 }
 
-// New creates a new Ollama service with a pre-loaded system prompt and configured models.
-func New(systemPrompt string, configModels []config.Model) *Service {
+// New creates a new Ollama service instance.
+func New() Service {
 	ollamaService := Service{}
 
-	return &ollamaService
+	return ollamaService
 }
 
 // PostChat sends a message along with conversation history to the specified Ollama model and returns the generated response.

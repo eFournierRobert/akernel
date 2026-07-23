@@ -1,3 +1,6 @@
+// Package inference provides the top-level abstraction for LLM inference.
+// It sits between the service layer and provider-specific clients, handling
+// model resolution, system prompt injection, and provider dispatch routing.
 package inference
 
 import (
@@ -9,12 +12,15 @@ import (
 	"fmt"
 )
 
+// Service holds the system prompt, configured models, and provider-specific clients.
+// It acts as the facade between the service layer and lower-level inference providers.
 type Service struct {
 	systemPrompt  HistoryMessage
 	models        []config.Model
 	ollamaService ollama.Service
 }
 
+// New creates a new Service from the given configuration, initializing the system prompt and model list.
 func New(config config.Config) Service {
 	systemPrompt := HistoryMessage{
 		Role:    "system",
@@ -24,14 +30,17 @@ func New(config config.Config) Service {
 	return Service{
 		systemPrompt:  systemPrompt,
 		models:        config.Models,
-		ollamaService: ollama.Service{},
+		ollamaService: ollama.New(),
 	}
 }
 
+// GetModels returns the list of configured AI models.
 func (s *Service) GetModels() []config.Model {
 	return s.models
 }
 
+// GetModel returns the model configuration matching the given name.
+// It returns ErrModelNotFound if no configured model matches.
 func (s *Service) GetModel(modelName string) (config.Model, error) {
 	for _, m := range s.models {
 		if m.Name == modelName {
@@ -42,6 +51,8 @@ func (s *Service) GetModel(modelName string) (config.Model, error) {
 	return config.Model{}, service.ErrModelNotFound
 }
 
+// PostChat resolves the requested model, prepends the system prompt to the conversation history,
+// and dispatches the request to the appropriate provider. It returns the completed response or an error.
 func (s *Service) PostChat(ctx context.Context, model string, history []HistoryMessage, thinking bool) (MessageResponse, error) {
 	fullModel, err := s.GetModel(model)
 	if err != nil {
@@ -70,6 +81,8 @@ func (s *Service) PostChat(ctx context.Context, model string, history []HistoryM
 	return MessageResponse{}, errors.New("invalid provider")
 }
 
+// GenerateConversationTitle produces a short title for a user message by sending a summary prompt to the model.
+// It returns an error if the inference call fails or returns empty content.
 func (s *Service) GenerateConversationTitle(ctx context.Context, message, model string) (string, error) {
 	titlePrompt := fmt.Sprintf("Generate a small conversation title for this message. Do not make propositions. Just answer with the title. Message: %s", message)
 

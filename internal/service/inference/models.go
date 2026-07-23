@@ -5,7 +5,7 @@ import (
 	"context"
 )
 
-// OllamaClient abstracts the Ollama service for model retrieval and chat, allowing mocking in tests.
+// InferenceClient abstracts an inference provider's chat capability, allowing mocking in tests.
 type InferenceClient interface {
 	PostChat(ctx context.Context, modelName string, history []HistoryMessage, thinking bool) (MessageResponse, error)
 }
@@ -18,7 +18,7 @@ type HistoryMessage struct {
 	ToolCalls []tools.ToolCall
 }
 
-// Message defines the request payload for sending a chat prompt to an Ollama model.
+// Message defines the request payload for sending a chat prompt to an LLM provider.
 type Message struct {
 	ModelId  string
 	Messages []HistoryMessage
@@ -26,7 +26,7 @@ type Message struct {
 	Tools    []tools.Tools
 }
 
-// MessageResponse represents a single chunk of a streaming response from the Ollama API.
+// MessageResponse represents the completed response returned by an LLM provider after a chat request.
 type MessageResponse struct {
 	Model            string
 	Response         HistoryMessage
