@@ -1,7 +1,9 @@
 package model
 
 import (
-	"akernel/internal/service/ollama"
+	"akernel/internal/config"
+	"akernel/internal/handlers/dto"
+	"akernel/internal/service/inference"
 	"context"
 	"testing"
 
@@ -9,60 +11,66 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type mockOllamaClient struct {
-	models []ollama.Model
+type mockInferenceClient struct {
+	models []config.Model
 }
 
-func (m *mockOllamaClient) GetModels() []ollama.Model {
+func (m *mockInferenceClient) GetModels() []config.Model {
 	return m.models
 }
 
-func (m *mockOllamaClient) GetModelId(_ string) string {
-	return ""
+func (m *mockInferenceClient) PostChat(_ context.Context, _ string, _ []inference.HistoryMessage, _ bool) (inference.MessageResponse, error) {
+	return inference.MessageResponse{}, nil
 }
 
-func (m *mockOllamaClient) PostChat(_ context.Context, _ string, _ []ollama.HistoryMessage, _ bool) (ollama.MessageResponse, error) {
-	return ollama.MessageResponse{}, nil
-}
-
-func (m *mockOllamaClient) GenerateConversationTitle(_ context.Context, _ string, _ string) (string, error) {
+func (m *mockInferenceClient) GenerateConversationTitle(_ context.Context, _ string, _ string) (string, error) {
 	return "", nil
 }
 
-func TestGetModels_EmptyList(t *testing.T) {
-	svc := New(&mockOllamaClient{
-		models: []ollama.Model{},
-	})
-
-	result, err := svc.GetModels(context.Background())
-	require.NoError(t, err)
-	assert.Empty(t, result)
-}
-
-func TestGetModels_SingleModel(t *testing.T) {
-	svc := New(&mockOllamaClient{
-		models: []ollama.Model{
-			{Name: "llama3.2", Description: "A small model"},
+func TestGetModels(t *testing.T) {
+	testCases := []struct {
+		name     string
+		models   []config.Model
+		expected []dto.Model
+	}{
+		{
+			name:     "empty list",
+			models:   []config.Model{},
+			expected: nil,
 		},
-	})
-
-	result, err := svc.GetModels(context.Background())
-	require.NoError(t, err)
-	require.Len(t, result, 1)
-	assert.Equal(t, "llama3.2", result[0].Name)
-	assert.Equal(t, "A small model", result[0].Description)
-}
-
-func TestGetModels_MultipleModels(t *testing.T) {
-	svc := New(&mockOllamaClient{
-		models: []ollama.Model{
-			{Name: "small", Description: "Small"},
-			{Name: "medium", Description: "Medium"},
-			{Name: "large", Description: "Large"},
+		{
+			name: "single model",
+			models: []config.Model{
+				{Name: "llama3.2", Description: "A small model"},
+			},
+			expected: []dto.Model{
+				{Name: "llama3.2", Description: "A small model"},
+			},
 		},
-	})
+		{
+			name: "multiple models",
+			models: []config.Model{
+				{Name: "small", Description: "Small"},
+				{Name: "medium", Description: "Medium"},
+				{Name: "large", Description: "Large"},
+			},
+			expected: []dto.Model{
+				{Name: "small", Description: "Small"},
+				{Name: "medium", Description: "Medium"},
+				{Name: "large", Description: "Large"},
+			},
+		},
+	}
 
-	result, err := svc.GetModels(context.Background())
-	require.NoError(t, err)
-	assert.Len(t, result, 3)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := Service{
+				inference: &mockInferenceClient{models: tc.models},
+			}
+
+			result, err := svc.GetModels(context.Background())
+			require.NoError(t, err)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
 }

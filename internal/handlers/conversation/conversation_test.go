@@ -1,19 +1,20 @@
 package conversation
 
 import (
+	"akernel/internal/config"
+	"akernel/internal/handlers/dto"
+	convoservice "akernel/internal/service/conversation"
+	"akernel/internal/service/inference"
 	"context"
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
-
-	"akernel/internal/handlers/dto"
-	"akernel/internal/service"
-	"akernel/internal/service/ollama"
-	convoservice "akernel/internal/service/conversation"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/pressly/goose/v3"
@@ -56,43 +57,42 @@ func insertMessage(t *testing.T, db *sqlx.DB, role, content string, conversation
 	require.NoError(t, err)
 }
 
-type mockOllamaClient struct {
-	response ollama.MessageResponse
-	err      error
+type mockInferenceClient struct {
+	models            []config.Model
+	postChatResponses []inference.MessageResponse
+	postChatIndex     int
+	titleGenResponse  string
 }
 
-func (m *mockOllamaClient) GetModels() []ollama.Model {
-	return []ollama.Model{}
+func (m *mockInferenceClient) GetModels() []config.Model {
+	return m.models
 }
 
-func (m *mockOllamaClient) PostChat(_ context.Context, _ string, _ []ollama.HistoryMessage, _ bool) (ollama.MessageResponse, error) {
-	return m.response, m.err
+func (m *mockInferenceClient) PostChat(_ context.Context, _ string, _ []inference.HistoryMessage, _ bool) (inference.MessageResponse, error) {
+	defer func() { m.postChatIndex++ }()
+
+	if m.postChatIndex >= len(m.postChatResponses) {
+		return inference.MessageResponse{}, errors.New("mock: no more responses")
+	}
+	return m.postChatResponses[m.postChatIndex], nil
 }
 
-func (m *mockOllamaClient) GenerateConversationTitle(_ context.Context, _ string, _ string) (string, error) {
+func (m *mockInferenceClient) GenerateConversationTitle(_ context.Context, _ string, _ string) (string, error) {
+	return m.titleGenResponse, nil
+}
+
+type errMockInferenceClient struct{}
+
+func (m *errMockInferenceClient) GetModels() []config.Model {
+	return []config.Model{{Name: "llama3.2"}}
+}
+
+func (m *errMockInferenceClient) PostChat(_ context.Context, _ string, _ []inference.HistoryMessage, _ bool) (inference.MessageResponse, error) {
+	return inference.MessageResponse{}, errors.New("service connection refused")
+}
+
+func (m *errMockInferenceClient) GenerateConversationTitle(_ context.Context, _ string, _ string) (string, error) {
 	return "", nil
-}
-
-func (m *mockOllamaClient) GetModelId(_ string) string {
-	return ""
-}
-
-type errMockOllamaClient struct{}
-
-func (m *errMockOllamaClient) GetModels() []ollama.Model {
-	return []ollama.Model{}
-}
-
-func (m *errMockOllamaClient) PostChat(_ context.Context, _ string, _ []ollama.HistoryMessage, _ bool) (ollama.MessageResponse, error) {
-	return ollama.MessageResponse{}, service.ErrModelNotFound
-}
-
-func (m *errMockOllamaClient) GenerateConversationTitle(_ context.Context, _ string, _ string) (string, error) {
-	return "", nil
-}
-
-func (m *errMockOllamaClient) GetModelId(_ string) string {
-	return ""
 }
 
 // newTestMux builds a ServeMux wired to the handler so PathValue works.
@@ -113,7 +113,7 @@ func TestGetConversations_SuccessWithResults(t *testing.T) {
 	insertConversation(t, db, "Meaning of life")
 	insertConversation(t, db, "Go programming help")
 
-	handler := Handler{service: convoservice.New(db, &mockOllamaClient{})}
+	handler := Handler{service: convoservice.New(db, &mockInferenceClient{})}
 	mux := newTestMux(handler)
 
 	req := httptest.NewRequest(http.MethodGet, "/conversation", nil)
@@ -132,7 +132,7 @@ func TestGetConversations_EmptyDatabase(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	handler := Handler{service: convoservice.New(db, &mockOllamaClient{})}
+	handler := Handler{service: convoservice.New(db, &mockInferenceClient{})}
 	mux := newTestMux(handler)
 
 	req := httptest.NewRequest(http.MethodGet, "/conversation", nil)
@@ -153,7 +153,7 @@ func TestGetConversations_ServiceError(t *testing.T) {
 	_, err := db.Exec("DROP TABLE conversations")
 	require.NoError(t, err)
 
-	handler := Handler{service: convoservice.New(db, &mockOllamaClient{})}
+	handler := Handler{service: convoservice.New(db, &mockInferenceClient{})}
 	mux := newTestMux(handler)
 
 	req := httptest.NewRequest(http.MethodGet, "/conversation", nil)
@@ -171,7 +171,7 @@ func TestDeleteConversation_Success(t *testing.T) {
 
 	cid := insertConversation(t, db, "delete me")
 
-	handler := Handler{service: convoservice.New(db, &mockOllamaClient{})}
+	handler := Handler{service: convoservice.New(db, &mockInferenceClient{})}
 	mux := newTestMux(handler)
 
 	req := httptest.NewRequest(http.MethodDelete, "/conversation/"+strconv.Itoa(cid), nil)
@@ -189,7 +189,7 @@ func TestDeleteConversation_NonNumericID(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	handler := Handler{service: convoservice.New(db, &mockOllamaClient{})}
+	handler := Handler{service: convoservice.New(db, &mockInferenceClient{})}
 	mux := newTestMux(handler)
 
 	req := httptest.NewRequest(http.MethodDelete, "/conversation/abc", nil)
@@ -203,7 +203,7 @@ func TestDeleteConversation_NotFound(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	handler := Handler{service: convoservice.New(db, &mockOllamaClient{})}
+	handler := Handler{service: convoservice.New(db, &mockInferenceClient{})}
 	mux := newTestMux(handler)
 
 	req := httptest.NewRequest(http.MethodDelete, "/conversation/9999", nil)
@@ -220,7 +220,7 @@ func TestDeleteConversation_GenericError(t *testing.T) {
 	_, err := db.Exec("DROP TABLE conversations")
 	require.NoError(t, err)
 
-	handler := Handler{service: convoservice.New(db, &mockOllamaClient{})}
+	handler := Handler{service: convoservice.New(db, &mockInferenceClient{})}
 	mux := newTestMux(handler)
 
 	req := httptest.NewRequest(http.MethodDelete, "/conversation/1", nil)
@@ -228,6 +228,20 @@ func TestDeleteConversation_GenericError(t *testing.T) {
 	mux.ServeHTTP(rec, req)
 
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
+}
+
+func TestDeleteConversation_NegativeID(t *testing.T) {
+	db := newTestDB(t)
+	defer db.Close()
+
+	handler := Handler{service: convoservice.New(db, &mockInferenceClient{})}
+	mux := newTestMux(handler)
+
+	req := httptest.NewRequest(http.MethodDelete, "/conversation/-1", nil)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
 // --- PostSummarize tests ---
@@ -240,17 +254,17 @@ func TestPostSummarize_HappyPath(t *testing.T) {
 	insertMessage(t, db, "user", "hello", cid, 10)
 	insertMessage(t, db, "assistant", "hi back", cid, 20)
 
-	ollamaMock := &mockOllamaClient{
-		response: ollama.MessageResponse{
-			Response: ollama.HistoryMessage{
+	mock := &mockInferenceClient{
+		postChatResponses: []inference.MessageResponse{{
+			Response: inference.HistoryMessage{
 				Role:    "assistant",
 				Content: "This is the summary.",
 			},
 			TokenCount: 42,
-		},
+		}},
 	}
 
-	handler := Handler{service: convoservice.New(db, ollamaMock)}
+	handler := Handler{service: convoservice.New(db, mock)}
 	mux := newTestMux(handler)
 
 	body := `{"name":"llama3.2"}`
@@ -269,7 +283,7 @@ func TestPostSummarize_NonNumericID(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	handler := Handler{service: convoservice.New(db, &mockOllamaClient{})}
+	handler := Handler{service: convoservice.New(db, &mockInferenceClient{})}
 	mux := newTestMux(handler)
 
 	body := `{"name":"llama3.2"}`
@@ -286,7 +300,7 @@ func TestPostSummarize_MalformedJSON(t *testing.T) {
 
 	cid := insertConversation(t, db, "malformed json test")
 
-	handler := Handler{service: convoservice.New(db, &mockOllamaClient{})}
+	handler := Handler{service: convoservice.New(db, &mockInferenceClient{})}
 	mux := newTestMux(handler)
 
 	body := `{invalid json}`
@@ -301,7 +315,7 @@ func TestPostSummarize_ConversationNotFound(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	handler := Handler{service: convoservice.New(db, &mockOllamaClient{})}
+	handler := Handler{service: convoservice.New(db, &mockInferenceClient{})}
 	mux := newTestMux(handler)
 
 	body := `{"name":"llama3.2"}`
@@ -312,70 +326,11 @@ func TestPostSummarize_ConversationNotFound(t *testing.T) {
 	require.Equal(t, http.StatusNotFound, rec.Code)
 }
 
-func TestPostSummarize_OllamaEmptyResponse(t *testing.T) {
-	db := newTestDB(t)
-	defer db.Close()
-
-	cid := insertConversation(t, db, "empty response test")
-	insertMessage(t, db, "user", "hello", cid, 10)
-
-	ollamaMock := &mockOllamaClient{
-		response: ollama.MessageResponse{
-			Response: ollama.HistoryMessage{
-				Role:    "assistant",
-				Content: "",
-			},
-		},
-	}
-
-	handler := Handler{service: convoservice.New(db, ollamaMock)}
-	mux := newTestMux(handler)
-
-	body := `{"name":"llama3.2"}`
-	req := httptest.NewRequest(http.MethodPost, "/conversation/"+strconv.Itoa(cid)+"/summarize", strings.NewReader(body))
-	rec := httptest.NewRecorder()
-	mux.ServeHTTP(rec, req)
-
-	require.Equal(t, http.StatusInternalServerError, rec.Code)
-}
-
-func TestPostSummarize_OllamaServiceError(t *testing.T) {
-	db := newTestDB(t)
-	defer db.Close()
-
-	cid := insertConversation(t, db, "service error test")
-	insertMessage(t, db, "user", "hello", cid, 10)
-
-	handler := Handler{service: convoservice.New(db, &errMockOllamaClient{})}
-	mux := newTestMux(handler)
-
-	body := `{"name":"llama3.2"}`
-	req := httptest.NewRequest(http.MethodPost, "/conversation/"+strconv.Itoa(cid)+"/summarize", strings.NewReader(body))
-	rec := httptest.NewRecorder()
-	mux.ServeHTTP(rec, req)
-
-	require.Equal(t, http.StatusInternalServerError, rec.Code)
-}
-
-func TestDeleteConversation_NegativeID(t *testing.T) {
-	db := newTestDB(t)
-	defer db.Close()
-
-	handler := Handler{service: convoservice.New(db, &mockOllamaClient{})}
-	mux := newTestMux(handler)
-
-	req := httptest.NewRequest(http.MethodDelete, "/conversation/-1", nil)
-	rec := httptest.NewRecorder()
-	mux.ServeHTTP(rec, req)
-
-	require.Equal(t, http.StatusBadRequest, rec.Code)
-}
-
 func TestPostSummarize_NegativeID(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	handler := Handler{service: convoservice.New(db, &mockOllamaClient{})}
+	handler := Handler{service: convoservice.New(db, &mockInferenceClient{})}
 	mux := newTestMux(handler)
 
 	body := `{"name":"llama3.2"}`
@@ -386,7 +341,51 @@ func TestPostSummarize_NegativeID(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
-func decodeBody(r interface{ String() string }, target interface{}) error {
-	decoder := json.NewDecoder(strings.NewReader(r.String()))
-	return decoder.Decode(target)
+func TestPostSummarize_EmptyResponse(t *testing.T) {
+	db := newTestDB(t)
+	defer db.Close()
+
+	cid := insertConversation(t, db, "empty response test")
+	insertMessage(t, db, "user", "hello", cid, 10)
+
+	mock := &mockInferenceClient{
+		postChatResponses: []inference.MessageResponse{{
+			Response: inference.HistoryMessage{
+				Role:    "assistant",
+				Content: "",
+			},
+		}},
+	}
+
+	handler := Handler{service: convoservice.New(db, mock)}
+	mux := newTestMux(handler)
+
+	body := `{"name":"llama3.2"}`
+	req := httptest.NewRequest(http.MethodPost, "/conversation/"+strconv.Itoa(cid)+"/summarize", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
+}
+
+func TestPostSummarize_ServiceError(t *testing.T) {
+	db := newTestDB(t)
+	defer db.Close()
+
+	cid := insertConversation(t, db, "service error test")
+	insertMessage(t, db, "user", "hello", cid, 10)
+
+	handler := Handler{service: convoservice.New(db, &errMockInferenceClient{})}
+	mux := newTestMux(handler)
+
+	body := `{"name":"llama3.2"}`
+	req := httptest.NewRequest(http.MethodPost, "/conversation/"+strconv.Itoa(cid)+"/summarize", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
+}
+
+func decodeBody(r io.Reader, target interface{}) error {
+	return json.NewDecoder(r).Decode(target)
 }

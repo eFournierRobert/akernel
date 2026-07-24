@@ -7,7 +7,7 @@ import (
 	"akernel/internal/handlers/model"
 	"akernel/internal/middleware"
 	"akernel/internal/repository"
-	"akernel/internal/service/ollama"
+	"akernel/internal/service/inference"
 	"flag"
 	"log"
 	"net/http"
@@ -23,16 +23,17 @@ func main() {
 	}
 
 	log.Println("Starting akernel...")
-	ollamaService := ollama.New(config.SystemPrompt, config.OllamaModels)
 
 	db, err := repository.ConnectDB(*isDev)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	chatHandler := chat.New(ollamaService, db)
-	modelHandler := model.New(ollamaService)
-	conversationHandler := conversation.New(db, ollamaService)
+	inference := inference.New(config)
+
+	chatHandler := chat.New(db, inference)
+	modelHandler := model.New(inference)
+	conversationHandler := conversation.New(db, inference)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /chat", chatHandler.Chat)
@@ -44,7 +45,7 @@ func main() {
 
 	handler := middleware.CorsMiddleware(mux)
 
-	log.Println("Listening on localhost:50500")
+	log.Println("Listening on 0.0.0.0:50500")
 	err = http.ListenAndServe("0.0.0.0:50500", handler)
 	if err != nil {
 		log.Fatalln(err)

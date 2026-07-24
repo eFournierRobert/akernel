@@ -3,25 +3,25 @@ package model
 
 import (
 	"akernel/internal/handlers/dto"
-	"akernel/internal/service"
+	"akernel/internal/service/inference"
 	"context"
 )
 
 // Service is the service for AI model-related actions.
 type Service struct {
-	ollama service.OllamaClient
+	inference inference.InferenceClient
 }
 
-// New creates a new Service that includes the given Ollama service.
-func New(ollama service.OllamaClient) Service {
+// New creates a new Service that includes the given inference service.
+func New(inference inference.InferenceClient) Service {
 	return Service{
-		ollama,
+		inference: inference,
 	}
 }
 
 // GetModels returns a list of available AI models.
 func (s *Service) GetModels(ctx context.Context) ([]dto.Model, error) {
-	modelList := s.ollama.GetModels()
+	modelList := s.inference.GetModels()
 
 	var dtoModelList []dto.Model
 	for _, model := range modelList {

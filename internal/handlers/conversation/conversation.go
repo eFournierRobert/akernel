@@ -5,6 +5,7 @@ import (
 	"akernel/internal/handlers/dto"
 	"akernel/internal/service"
 	"akernel/internal/service/conversation"
+	"akernel/internal/service/inference"
 	"encoding/json"
 	"errors"
 	"io"
@@ -21,9 +22,9 @@ type Handler struct {
 }
 
 // New creates a new working Handler.
-func New(db *sqlx.DB, ollamaService service.OllamaClient) Handler {
+func New(db *sqlx.DB, inference inference.InferenceClient) Handler {
 	return Handler{
-		service: conversation.New(db, ollamaService),
+		service: conversation.New(db, inference),
 	}
 }
 
