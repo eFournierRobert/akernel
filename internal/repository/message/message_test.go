@@ -55,7 +55,7 @@ func TestInsertMessage_Success(t *testing.T) {
 
 	cid := insertConversation(t, db, "test")
 
-	err := repo.InsertMessage(repository.Message{
+	mid, err := repo.InsertMessage(repository.Message{
 		Role:           "user",
 		Content:        "hello",
 		Thinking:       "",
@@ -63,6 +63,7 @@ func TestInsertMessage_Success(t *testing.T) {
 		ConversationId: cid,
 		TokenCount:     50,
 	})
+	require.NotEmpty(t, mid)
 	require.NoError(t, err)
 
 	var count int
@@ -75,13 +76,14 @@ func TestInsertMessage_FKViolation(t *testing.T) {
 	defer db.Close()
 	repo := New(db)
 
-	err := repo.InsertMessage(repository.Message{
+	mid, err := repo.InsertMessage(repository.Message{
 		Role:           "user",
 		Content:        "orphan",
 		DateTime:       time.Now(),
 		ConversationId: 9999,
 		TokenCount:     10,
 	})
+	assert.Empty(t, mid)
 	assert.Error(t, err)
 }
 
@@ -287,11 +289,11 @@ func TestSelectAllMessagesAfterLastPrompt_Basic(t *testing.T) {
 	cid := insertConversation(t, db, "after prompt")
 	insertMessage(t, db, "user", "earlier", cid, 5)
 	insertMessage(t, db, "assistant", "earlier reply", cid, 10)
-	insertMessage(t, db, "user", "my question", cid, 20)
+	pid := insertMessage(t, db, "user", "my question", cid, 20)
 	insertMessage(t, db, "assistant", "answer", cid, 30)
 	insertMessage(t, db, "user", "follow up", cid, 15)
 
-	messages, err := repo.SelectAllMessagesAfterLastPrompt(cid, "my question")
+	messages, err := repo.SelectAllMessagesAfterLastPrompt(cid, int64(pid))
 	require.NoError(t, err)
 	assert.Len(t, messages, 2)
 }
@@ -310,10 +312,10 @@ func TestSelectAllMessagesAfterLastPrompt_DuplicatePromptUsesLastOccurrence(t *t
 	insertMessage(t, db, "assistant", "a1", cid, 10)
 	insertMessage(t, db, "user", "repeat", cid, 20)
 	insertMessage(t, db, "assistant", "a2", cid, 30)
-	insertMessage(t, db, "user", "repeat", cid, 15)
+	pid := insertMessage(t, db, "user", "repeat", cid, 15)
 	insertMessage(t, db, "assistant", "a3", cid, 25)
 
-	messages, err := repo.SelectAllMessagesAfterLastPrompt(cid, "repeat")
+	messages, err := repo.SelectAllMessagesAfterLastPrompt(cid, int64(pid))
 	require.NoError(t, err)
 	require.Len(t, messages, 1)
 	assert.Equal(t, "a3", messages[0].Content)
@@ -328,7 +330,7 @@ func TestSelectAllMessagesAfterLastPrompt_NotFound(t *testing.T) {
 	insertMessage(t, db, "user", "hello", cid, 10)
 	insertMessage(t, db, "assistant", "hi", cid, 20)
 
-	messages, err := repo.SelectAllMessagesAfterLastPrompt(cid, "nonexistent")
+	messages, err := repo.SelectAllMessagesAfterLastPrompt(cid, 3)
 	require.NoError(t, err)
 	assert.Empty(t, messages)
 }

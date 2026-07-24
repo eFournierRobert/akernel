@@ -48,14 +48,14 @@ func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) 
 		return nil, fmt.Errorf("generate prompt answer: %w", service.ErrInvalidConversation)
 	}
 
-	conversationId, err := s.insertPrompt(ctx, prompt)
+	promptId, err := s.insertPrompt(ctx, prompt)
 	if err != nil {
 		return nil, err
 	}
 
-	answer, err := s.getHistoryAndPostChat(ctx, conversationId, prompt)
+	answer, err := s.getHistoryAndPostChat(ctx, prompt.ConversationId, prompt)
 	if err != nil || ctx.Err() != nil {
-		if err := s.messageRepo.PopLastUserMessage(conversationId); err != nil {
+		if err := s.messageRepo.PopLastUserMessage(prompt.ConversationId); err != nil {
 			return nil, err
 		}
 
@@ -63,13 +63,13 @@ func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) 
 	}
 
 	if len(answer.Response.ToolCalls) > 0 {
-		if err = s.makeToolCalls(answer.Response.Thinking, conversationId, answer.Response.ToolCalls); err != nil {
+		if err = s.makeToolCalls(answer.Response.Thinking, prompt.ConversationId, answer.Response.ToolCalls); err != nil {
 			return nil, err
 		}
 
-		answer, err = s.getHistoryAndPostChat(ctx, conversationId, prompt)
+		answer, err = s.getHistoryAndPostChat(ctx, prompt.ConversationId, prompt)
 		if err != nil || ctx.Err() != nil {
-			if err := s.messageRepo.PopLastUserMessage(conversationId); err != nil {
+			if err := s.messageRepo.PopLastUserMessage(prompt.ConversationId); err != nil {
 				return nil, err
 			}
 
@@ -78,16 +78,16 @@ func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) 
 	}
 
 	if len(answer.Response.Content) > 0 {
-		if err = s.InsertAssistantAnswer(answer.Response.Thinking, answer.Response.Content, answer.TokenCount, conversationId); err != nil {
+		if err = s.InsertAssistantAnswer(answer.Response.Thinking, answer.Response.Content, answer.TokenCount, prompt.ConversationId); err != nil {
 			return nil, err
 		}
-		if err = s.messageRepo.AddTokenToLatestUserMessage(conversationId, answer.PromptTokenCount); err != nil {
+		if err = s.messageRepo.AddTokenToLatestUserMessage(prompt.ConversationId, answer.PromptTokenCount); err != nil {
 			return nil, err
 		}
-		return s.getAllMessagesAfterPrompt(conversationId, answer.PromptTokenCount, prompt.Message)
+		return s.getAllMessagesAfterPrompt(prompt.ConversationId, answer.PromptTokenCount, promptId)
 	}
 
-	if err = s.messageRepo.PopLastUserMessage(conversationId); err != nil {
+	if err = s.messageRepo.PopLastUserMessage(prompt.ConversationId); err != nil {
 		return nil, err
 	}
 	return nil, errors.New("received empty answer from ollama")
@@ -104,7 +104,8 @@ func (s *Service) InsertAssistantAnswer(thinking, answer string, tokenCount, con
 		TokenCount:     tokenCount,
 	}
 
-	return s.messageRepo.InsertMessage(m)
+	_, err := s.messageRepo.InsertMessage(m)
+	return err
 }
 
 // GetConversation gets the conversation and returns an array of Message DTO.
@@ -148,7 +149,7 @@ func (s *Service) doesModelExist(modelName string) (bool, error) {
 }
 
 // insertPrompt saves a user's message to the database and returns the associated conversation ID.
-func (s *Service) insertPrompt(ctx context.Context, prompt *dto.Prompt) (int, error) {
+func (s *Service) insertPrompt(ctx context.Context, prompt *dto.Prompt) (int64, error) {
 	m := repository.Message{
 		Role:           "user",
 		Content:        prompt.Message,
@@ -169,13 +170,10 @@ func (s *Service) insertPrompt(ctx context.Context, prompt *dto.Prompt) (int, er
 			return 0, err
 		}
 		m.ConversationId = newConversation.ID
+		prompt.ConversationId = newConversation.ID
 	}
 
-	if err := s.messageRepo.InsertMessage(m); err != nil {
-		return 0, err
-	}
-
-	return m.ConversationId, nil
+	return s.messageRepo.InsertMessage(m)
 }
 
 // insertToolAnswer saves a single tool execution result as a message in the conversation.
@@ -187,11 +185,8 @@ func (s *Service) insertToolAnswer(conversationId int, toolAnswer string) error 
 		DateTime:       time.Now(),
 	}
 
-	if err := s.messageRepo.InsertMessage(m); err != nil {
-		return err
-	}
-
-	return nil
+	_, err := s.messageRepo.InsertMessage(m)
+	return err
 }
 
 // fetchConversationHistory retrieves all messages for a conversation and converts them into the history format required by Ollama.
@@ -254,8 +249,8 @@ func (s *Service) makeToolCalls(thinking string, conversationId int, toolCalls [
 
 // getAllMessagesAfterPrompt fetches all messages generated after the user's original prompt,
 // excluding the prompt itself.
-func (s *Service) getAllMessagesAfterPrompt(conversationId, promptTokenCount int, prompt string) ([]dto.Answer, error) {
-	messages, err := s.messageRepo.SelectAllMessagesAfterLastPrompt(conversationId, prompt)
+func (s *Service) getAllMessagesAfterPrompt(conversationId, promptTokenCount int, promptId int64) ([]dto.Answer, error) {
+	messages, err := s.messageRepo.SelectAllMessagesAfterLastPrompt(conversationId, promptId)
 	if err != nil {
 		return nil, err
 	}

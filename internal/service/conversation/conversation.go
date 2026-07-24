@@ -91,7 +91,7 @@ func (s *Service) CreateNewSummary(ctx context.Context, conversationId int, mode
 		TokenCount:     res.TokenCount,
 		ConversationId: conversationId,
 	}
-	if err = s.messageRepo.InsertMessage(newSummary); err != nil {
+	if _, err = s.messageRepo.InsertMessage(newSummary); err != nil {
 		return err
 	}
 
