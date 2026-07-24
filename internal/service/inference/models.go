@@ -1,6 +1,7 @@
 package inference
 
 import (
+	"akernel/internal/config"
 	"akernel/internal/service/inference/tools"
 	"context"
 )
@@ -8,6 +9,8 @@ import (
 // InferenceClient abstracts an inference provider's chat capability, allowing mocking in tests.
 type InferenceClient interface {
 	PostChat(ctx context.Context, modelName string, history []HistoryMessage, thinking bool) (MessageResponse, error)
+	GetModels() []config.Model
+	GenerateConversationTitle(ctx context.Context, message, model string) (string, error)
 }
 
 // HistoryMessage represents a single message within a conversation history, including its role and content.

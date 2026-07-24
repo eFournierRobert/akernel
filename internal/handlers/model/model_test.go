@@ -1,6 +1,9 @@
 package model
 
 import (
+	"akernel/internal/config"
+	"akernel/internal/service/inference"
+	modelservice "akernel/internal/service/model"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -9,8 +12,6 @@ import (
 	"testing"
 
 	"akernel/internal/handlers/dto"
-	modelservice "akernel/internal/service/model"
-	"akernel/internal/service/ollama"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -21,30 +22,26 @@ func newTestMux(handler Handler) http.Handler {
 	return mux
 }
 
-type mockOllamaClient struct {
-	models []ollama.Model
+type mockInferenceClient struct {
+	models []config.Model
 }
 
-func (m *mockOllamaClient) GetModels() []ollama.Model {
+func (m *mockInferenceClient) GetModels() []config.Model {
 	return m.models
 }
 
-func (m *mockOllamaClient) GetModelId(_ string) string {
-	return ""
+func (m *mockInferenceClient) PostChat(_ context.Context, _ string, _ []inference.HistoryMessage, _ bool) (inference.MessageResponse, error) {
+	return inference.MessageResponse{}, nil
 }
 
-func (m *mockOllamaClient) PostChat(_ context.Context, _ string, _ []ollama.HistoryMessage, _ bool) (ollama.MessageResponse, error) {
-	return ollama.MessageResponse{}, nil
-}
-
-func (m *mockOllamaClient) GenerateConversationTitle(_ context.Context, _ string, _ string) (string, error) {
+func (m *mockInferenceClient) GenerateConversationTitle(_ context.Context, _ string, _ string) (string, error) {
 	return "", nil
 }
 
 func TestGetModels_SuccessWithResults(t *testing.T) {
 	h := Handler{
-		service: modelservice.New(&mockOllamaClient{
-			models: []ollama.Model{
+		service: modelservice.NewModelServiceForTesting(&mockInferenceClient{
+			models: []config.Model{
 				{Name: "llama3.2", Description: "A small model"},
 				{Name: "gemma2", Description: "A larger model"},
 			},
@@ -68,8 +65,8 @@ func TestGetModels_SuccessWithResults(t *testing.T) {
 
 func TestGetModels_EmptyList(t *testing.T) {
 	h := Handler{
-		service: modelservice.New(&mockOllamaClient{
-			models: []ollama.Model{},
+		service: modelservice.NewModelServiceForTesting(&mockInferenceClient{
+			models: []config.Model{},
 		}),
 	}
 	mux := newTestMux(h)

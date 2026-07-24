@@ -23,7 +23,7 @@ import (
 type Service struct {
 	messageRepo message.Repository
 	convoRepo   conversation.Repository
-	inference   inference.Service
+	inference   inference.InferenceClient
 }
 
 // NewChatService initializes a new instance of the Chat Service.
@@ -35,6 +35,15 @@ func NewChatService(db *sqlx.DB, config config.Config) *Service {
 	}
 
 	return &s
+}
+
+// NewChatServiceForTesting initializes a new Chat Service with explicit injection dependencies, intended for use in tests.
+func NewChatServiceForTesting(db *sqlx.DB, inferenceClient inference.InferenceClient) *Service {
+	return &Service{
+		messageRepo: message.New(db),
+		convoRepo:   conversation.New(db),
+		inference:   inferenceClient,
+	}
 }
 
 // GeneratePromptAnswer takes a user prompt and generates an AI answer. Also creates a conversation if necessary.

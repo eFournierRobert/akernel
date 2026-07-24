@@ -1,14 +1,17 @@
 package conversation
 
 import (
+	"akernel/internal/config"
 	"akernel/internal/handlers/dto"
+	"akernel/internal/repository/conversation"
+	"akernel/internal/repository/message"
 	"akernel/internal/service"
+	"akernel/internal/service/inference"
 	"context"
 	"errors"
 	"testing"
 	"time"
 
-	"akernel/internal/service/ollama"
 	"github.com/jmoiron/sqlx"
 	"github.com/pressly/goose/v3"
 	"github.com/stretchr/testify/assert"
@@ -40,25 +43,31 @@ func insertConversation(t *testing.T, db *sqlx.DB, title string) int {
 	return int(id)
 }
 
-type mockOllamaClient struct {
-	response ollama.MessageResponse
+func insertMessage(t *testing.T, db *sqlx.DB, role, content string, conversationID, tokenCount int) {
+	t.Helper()
+	ts := time.Now().Unix()
+	_, err := db.Exec(
+		"INSERT INTO messages (role, content, thinking, datetime, conversation_id, token_count) VALUES (?, ?, '', ?, ?, ?)",
+		role, content, ts, conversationID, tokenCount,
+	)
+	require.NoError(t, err)
+}
+
+type mockInferenceClient struct {
+	response inference.MessageResponse
 	err      error
 }
 
-func (m *mockOllamaClient) GetModels() []ollama.Model {
-	return []ollama.Model{}
+func (m *mockInferenceClient) GetModels() []config.Model {
+	return []config.Model{}
 }
 
-func (m *mockOllamaClient) PostChat(_ context.Context, _ string, _ []ollama.HistoryMessage, _ bool) (ollama.MessageResponse, error) {
+func (m *mockInferenceClient) PostChat(_ context.Context, _ string, _ []inference.HistoryMessage, _ bool) (inference.MessageResponse, error) {
 	return m.response, m.err
 }
 
-func (m *mockOllamaClient) GenerateConversationTitle(_ context.Context, _ string, _ string) (string, error) {
+func (m *mockInferenceClient) GenerateConversationTitle(_ context.Context, _ string, _ string) (string, error) {
 	return "", nil
-}
-
-func (m *mockOllamaClient) GetModelId(_ string) string {
-	return ""
 }
 
 func TestFetchConversations_Populated(t *testing.T) {
@@ -68,7 +77,11 @@ func TestFetchConversations_Populated(t *testing.T) {
 	cid1 := insertConversation(t, db, "first")
 	cid2 := insertConversation(t, db, "second")
 
-	svc := New(db, &mockOllamaClient{})
+	svc := Service{
+		repository:  conversation.New(db),
+		messageRepo: message.New(db),
+		inference:   &mockInferenceClient{},
+	}
 	result, err := svc.FetchConversations()
 
 	require.NoError(t, err)
@@ -81,7 +94,11 @@ func TestFetchConversations_Empty(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	svc := New(db, &mockOllamaClient{})
+	svc := Service{
+		repository:  conversation.New(db),
+		messageRepo: message.New(db),
+		inference:   &mockInferenceClient{},
+	}
 	result, err := svc.FetchConversations()
 
 	require.NoError(t, err)
@@ -94,7 +111,11 @@ func TestDeleteConversation_Success(t *testing.T) {
 
 	cid := insertConversation(t, db, "delete me")
 
-	svc := New(db, &mockOllamaClient{})
+	svc := Service{
+		repository:  conversation.New(db),
+		messageRepo: message.New(db),
+		inference:   &mockInferenceClient{},
+	}
 	err := svc.DeleteConversation(cid)
 
 	assert.NoError(t, err)
@@ -108,7 +129,11 @@ func TestDeleteConversation_NotFound(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	svc := New(db, &mockOllamaClient{})
+	svc := Service{
+		repository:  conversation.New(db),
+		messageRepo: message.New(db),
+		inference:   &mockInferenceClient{},
+	}
 	err := svc.DeleteConversation(9999)
 
 	assert.Error(t, err)
@@ -123,15 +148,19 @@ func TestCreateNewSummary_HappyPath(t *testing.T) {
 	insertMessage(t, db, "user", "hello", cid, 10)
 	insertMessage(t, db, "assistant", "hi back", cid, 20)
 
-	svc := New(db, &mockOllamaClient{
-		response: ollama.MessageResponse{
-			Response: ollama.HistoryMessage{
-				Role:    "assistant",
-				Content: "This is the summary.",
+	svc := Service{
+		repository:  conversation.New(db),
+		messageRepo: message.New(db),
+		inference: &mockInferenceClient{
+			response: inference.MessageResponse{
+				Response: inference.HistoryMessage{
+					Role:    "assistant",
+					Content: "This is the summary.",
+				},
+				TokenCount: 42,
 			},
-			TokenCount: 42,
 		},
-	})
+	}
 
 	err := svc.CreateNewSummary(context.Background(), cid, "llama3.2")
 	require.NoError(t, err)
@@ -149,7 +178,11 @@ func TestCreateNewSummary_ConversationNotFound(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	svc := New(db, &mockOllamaClient{})
+	svc := Service{
+		repository:  conversation.New(db),
+		messageRepo: message.New(db),
+		inference:   &mockInferenceClient{},
+	}
 	err := svc.CreateNewSummary(context.Background(), 9999, "llama3.2")
 
 	assert.Error(t, err)
@@ -162,25 +195,19 @@ func TestCreateNewSummary_EmptyOllamaResponse(t *testing.T) {
 	cid := insertConversation(t, db, "empty response test")
 	insertMessage(t, db, "user", "hello", cid, 10)
 
-	svc := New(db, &mockOllamaClient{
-		response: ollama.MessageResponse{
-			Response: ollama.HistoryMessage{
-				Role:    "assistant",
-				Content: "",
+	svc := Service{
+		repository:  conversation.New(db),
+		messageRepo: message.New(db),
+		inference: &mockInferenceClient{
+			response: inference.MessageResponse{
+				Response: inference.HistoryMessage{
+					Role:    "assistant",
+					Content: "",
+				},
 			},
 		},
-	})
+	}
 
 	err := svc.CreateNewSummary(context.Background(), cid, "llama3.2")
 	assert.Error(t, err)
-}
-
-func insertMessage(t *testing.T, db *sqlx.DB, role, content string, conversationID, tokenCount int) {
-	t.Helper()
-	ts := time.Now().Unix()
-	_, err := db.Exec(
-		"INSERT INTO messages (role, content, thinking, datetime, conversation_id, token_count) VALUES (?, ?, '', ?, ?, ?)",
-		role, content, ts, conversationID, tokenCount,
-	)
-	require.NoError(t, err)
 }

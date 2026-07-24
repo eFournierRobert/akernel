@@ -1,10 +1,13 @@
 package chat
 
 import (
+	"akernel/internal/config"
 	"akernel/internal/handlers/dto"
+	"akernel/internal/repository/conversation"
+	"akernel/internal/repository/message"
 	"akernel/internal/service"
-	"akernel/internal/service/ollama"
-	"akernel/internal/service/ollama/tools"
+	"akernel/internal/service/inference"
+	"akernel/internal/service/inference/tools"
 	"context"
 	"errors"
 	"testing"
@@ -48,52 +51,55 @@ func insertMessage(t *testing.T, db *sqlx.DB, role, content string, conversation
 	require.NoError(t, err)
 }
 
-type mockOllamaClient struct {
-	models             []ollama.Model
-	postChatResponses  []ollama.MessageResponse
-	postChatIndex      int
-	postChatErr        error
-	titleGenResponse   string
-	titleGenErr        error
-	modelId            string
+type mockInferenceClient struct {
+	models               []config.Model
+	postChatResponses    []inference.MessageResponse
+	postChatIndex        int
+	postChatErr          error
+	titleGenResponse     string
+	titleGenErr          error
 }
 
-func (m *mockOllamaClient) GetModels() []ollama.Model {
+func (m *mockInferenceClient) GetModels() []config.Model {
 	return m.models
 }
 
-func (m *mockOllamaClient) PostChat(_ context.Context, _ string, _ []ollama.HistoryMessage, _ bool) (ollama.MessageResponse, error) {
+func (m *mockInferenceClient) PostChat(_ context.Context, _ string, _ []inference.HistoryMessage, _ bool) (inference.MessageResponse, error) {
 	defer func() { m.postChatIndex++ }()
 
 	if m.postChatErr != nil {
-		return ollama.MessageResponse{}, m.postChatErr
+		return inference.MessageResponse{}, m.postChatErr
 	}
 
 	if m.postChatIndex >= len(m.postChatResponses) {
-		return ollama.MessageResponse{}, errors.New("mock: no more responses")
+		return inference.MessageResponse{}, errors.New("mock: no more responses")
 	}
 
 	return m.postChatResponses[m.postChatIndex], nil
 }
 
-func (m *mockOllamaClient) GenerateConversationTitle(_ context.Context, _ string, _ string) (string, error) {
+func (m *mockInferenceClient) GenerateConversationTitle(_ context.Context, _ string, _ string) (string, error) {
 	return m.titleGenResponse, m.titleGenErr
 }
 
-func (m *mockOllamaClient) GetModelId(_ string) string {
-	return m.modelId
+func newTestService(t *testing.T, db *sqlx.DB, mock inference.InferenceClient) *Service {
+	t.Helper()
+	return &Service{
+		messageRepo: message.New(db),
+		convoRepo:   conversation.New(db),
+		inference:   mock,
+	}
 }
 
 func TestGeneratePromptAnswer_HappyPath_NewConversation(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	mock := &mockOllamaClient{
-		models: []ollama.Model{{Name: "llama3.2"}},
-		modelId: "llama3.2:latest",
+	mock := &mockInferenceClient{
+		models: []config.Model{{Name: "llama3.2"}},
 		titleGenResponse: "New Chat",
-		postChatResponses: []ollama.MessageResponse{{
-			Response: ollama.HistoryMessage{
+		postChatResponses: []inference.MessageResponse{{
+			Response: inference.HistoryMessage{
 				Role:    "assistant",
 				Content: "Hello there!",
 			},
@@ -102,7 +108,7 @@ func TestGeneratePromptAnswer_HappyPath_NewConversation(t *testing.T) {
 		}},
 	}
 
-	svc := NewChatService(db, mock)
+	svc := newTestService(t, db, mock)
 	result, err := svc.GeneratePromptAnswer(context.Background(), &dto.Prompt{
 		Model:          "llama3.2",
 		Message:        "Hey",
@@ -120,11 +126,10 @@ func TestGeneratePromptAnswer_HappyPath_ExistingConversation(t *testing.T) {
 
 	cid := insertConversation(t, db, "existing")
 
-	mock := &mockOllamaClient{
-		models: []ollama.Model{{Name: "llama3.2"}},
-		modelId: "llama3.2:latest",
-		postChatResponses: []ollama.MessageResponse{{
-			Response: ollama.HistoryMessage{
+	mock := &mockInferenceClient{
+		models: []config.Model{{Name: "llama3.2"}},
+		postChatResponses: []inference.MessageResponse{{
+			Response: inference.HistoryMessage{
 				Role:    "assistant",
 				Content: "Greeting from existing convo!",
 			},
@@ -133,7 +138,7 @@ func TestGeneratePromptAnswer_HappyPath_ExistingConversation(t *testing.T) {
 		}},
 	}
 
-	svc := NewChatService(db, mock)
+	svc := newTestService(t, db, mock)
 	result, err := svc.GeneratePromptAnswer(context.Background(), &dto.Prompt{
 		Model:          "llama3.2",
 		Message:        "Hello",
@@ -154,16 +159,16 @@ func TestGeneratePromptAnswer_WithToolCalls_Success(t *testing.T) {
 	mockCall := []tools.ToolCall{
 		{Function: tools.Function{Name: "get_current_time", Arguments: nil}},
 	}
-	firstResponse := ollama.MessageResponse{
-		Response: ollama.HistoryMessage{
+	firstResponse := inference.MessageResponse{
+		Response: inference.HistoryMessage{
 			Role:      "assistant",
 			Content:   "",
 			ToolCalls: mockCall,
 		},
 		TokenCount: 10,
 	}
-	secondResponse := ollama.MessageResponse{
-		Response: ollama.HistoryMessage{
+	secondResponse := inference.MessageResponse{
+		Response: inference.HistoryMessage{
 			Role:    "assistant",
 			Content: "The time was returned by the tool.",
 		},
@@ -171,13 +176,12 @@ func TestGeneratePromptAnswer_WithToolCalls_Success(t *testing.T) {
 		PromptTokenCount: 15,
 	}
 
-	mock := &mockOllamaClient{
-		models: []ollama.Model{{Name: "llama3.2"}},
-		modelId: "llama3.2:latest",
-		postChatResponses: []ollama.MessageResponse{firstResponse, secondResponse},
+	mock := &mockInferenceClient{
+		models:            []config.Model{{Name: "llama3.2"}},
+		postChatResponses: []inference.MessageResponse{firstResponse, secondResponse},
 	}
 
-	svc := NewChatService(db, mock)
+	svc := newTestService(t, db, mock)
 	result, err := svc.GeneratePromptAnswer(context.Background(), &dto.Prompt{
 		Model:          "llama3.2",
 		Message:        "What time is it?",
@@ -192,11 +196,11 @@ func TestGeneratePromptAnswer_ModelNotFound(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	mock := &mockOllamaClient{
-		models: []ollama.Model{{Name: "llama3.2"}},
+	mock := &mockInferenceClient{
+		models: []config.Model{{Name: "llama3.2"}},
 	}
 
-	svc := NewChatService(db, mock)
+	svc := newTestService(t, db, mock)
 	_, err := svc.GeneratePromptAnswer(context.Background(), &dto.Prompt{
 		Model:          "nonexistent-model",
 		Message:        "Hello",
@@ -225,11 +229,11 @@ func TestGeneratePromptAnswer_InvalidConversationId(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mock := &mockOllamaClient{
-				models: []ollama.Model{{Name: "llama3.2"}},
+			mock := &mockInferenceClient{
+				models: []config.Model{{Name: "llama3.2"}},
 			}
 
-			svc := NewChatService(db, mock)
+			svc := newTestService(t, db, mock)
 			_, err := svc.GeneratePromptAnswer(context.Background(), &dto.Prompt{
 				Model:          "llama3.2",
 				Message:        "Hello",
@@ -248,13 +252,12 @@ func TestGeneratePromptAnswer_OllamaPostChatError_RollsBack(t *testing.T) {
 
 	cid := insertConversation(t, db, "rollback test")
 
-	mock := &mockOllamaClient{
-		models:  []ollama.Model{{Name: "llama3.2"}},
-		modelId: "llama3.2:latest",
+	mock := &mockInferenceClient{
+		models:      []config.Model{{Name: "llama3.2"}},
 		postChatErr: errors.New("ollama down"),
 	}
 
-	svc := NewChatService(db, mock)
+	svc := newTestService(t, db, mock)
 	_, err := svc.GeneratePromptAnswer(context.Background(), &dto.Prompt{
 		Model:          "llama3.2",
 		Message:        "Hello",
@@ -274,9 +277,8 @@ func TestGeneratePromptAnswer_ContextCancelled_RollsBack(t *testing.T) {
 
 	cid := insertConversation(t, db, "ctx test")
 
-	svc := NewChatService(db, &mockOllamaClient{
-		models:  []ollama.Model{{Name: "llama3.2"}},
-		modelId: "llama3.2:latest",
+	svc := newTestService(t, db, &mockInferenceClient{
+		models: []config.Model{{Name: "llama3.2"}},
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -301,11 +303,10 @@ func TestGeneratePromptAnswer_EmptyResponse(t *testing.T) {
 
 	cid := insertConversation(t, db, "empty")
 
-	mock := &mockOllamaClient{
-		models:  []ollama.Model{{Name: "llama3.2"}},
-		modelId: "llama3.2:latest",
-		postChatResponses: []ollama.MessageResponse{{
-			Response: ollama.HistoryMessage{
+	mock := &mockInferenceClient{
+		models: []config.Model{{Name: "llama3.2"}},
+		postChatResponses: []inference.MessageResponse{{
+			Response: inference.HistoryMessage{
 				Role:    "assistant",
 				Content: "",
 			},
@@ -313,7 +314,7 @@ func TestGeneratePromptAnswer_EmptyResponse(t *testing.T) {
 		}},
 	}
 
-	svc := NewChatService(db, mock)
+	svc := newTestService(t, db, mock)
 	result, err := svc.GeneratePromptAnswer(context.Background(), &dto.Prompt{
 		Model:          "llama3.2",
 		Message:        "Hello",
@@ -336,8 +337,7 @@ func TestGetConversation_Success_WithMessages(t *testing.T) {
 	insertMessage(t, db, "user", "hey", cid, 5)
 	insertMessage(t, db, "assistant", "hi there!", cid, 10)
 
-	mock := &mockOllamaClient{}
-	svc := NewChatService(db, mock)
+	svc := newTestService(t, db, &mockInferenceClient{})
 	result, err := svc.GetConversation(cid)
 
 	require.NoError(t, err)
@@ -354,8 +354,7 @@ func TestGetConversation_Success_EmptyConversation(t *testing.T) {
 
 	cid := insertConversation(t, db, "empty convo")
 
-	mock := &mockOllamaClient{}
-	svc := NewChatService(db, mock)
+	svc := newTestService(t, db, &mockInferenceClient{})
 	result, err := svc.GetConversation(cid)
 
 	require.NoError(t, err)
@@ -366,8 +365,7 @@ func TestGetConversation_ConversationNotFound(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	mock := &mockOllamaClient{}
-	svc := NewChatService(db, mock)
+	svc := newTestService(t, db, &mockInferenceClient{})
 	_, err := svc.GetConversation(99999)
 
 	assert.Error(t, err)

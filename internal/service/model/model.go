@@ -10,13 +10,20 @@ import (
 
 // Service is the service for AI model-related actions.
 type Service struct {
-	inference inference.Service
+	inference inference.InferenceClient
 }
 
 // New creates a new Service that includes the given inference service.
 func New(config config.Config) Service {
 	return Service{
 		inference: inference.New(config),
+	}
+}
+
+// NewModelServiceForTesting creates a new Service with the given inference client, intended for use in tests.
+func NewModelServiceForTesting(inferenceClient inference.InferenceClient) Service {
+	return Service{
+		inference: inferenceClient,
 	}
 }
 

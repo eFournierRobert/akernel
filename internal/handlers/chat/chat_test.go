@@ -1,6 +1,11 @@
 package chat
 
 import (
+	"akernel/internal/config"
+	"akernel/internal/handlers/dto"
+	chatService "akernel/internal/service/chat"
+	"akernel/internal/service/inference"
+	"akernel/internal/service/inference/tools"
 	"context"
 	"encoding/json"
 	"errors"
@@ -10,10 +15,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"akernel/internal/handlers/dto"
-	chatService "akernel/internal/service/chat"
-	"akernel/internal/service/ollama"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/pressly/goose/v3"
@@ -56,54 +57,46 @@ func insertMessage(t *testing.T, db *sqlx.DB, role, content string, conversation
 	require.NoError(t, err)
 }
 
-type mockOllamaClient struct {
-	models            []ollama.Model
-	postChatResponses []ollama.MessageResponse
+type mockInferenceClient struct {
+	models            []config.Model
+	postChatResponses []inference.MessageResponse
 	postChatIndex     int
 	titleGenResponse  string
-	modelId           string
 }
 
-func (m *mockOllamaClient) GetModels() []ollama.Model {
+func (m *mockInferenceClient) GetModels() []config.Model {
 	return m.models
 }
 
-func (m *mockOllamaClient) PostChat(_ context.Context, _ string, _ []ollama.HistoryMessage, _ bool) (ollama.MessageResponse, error) {
+func (m *mockInferenceClient) PostChat(_ context.Context, _ string, _ []inference.HistoryMessage, _ bool) (inference.MessageResponse, error) {
 	defer func() { m.postChatIndex++ }()
 
 	if m.postChatIndex >= len(m.postChatResponses) {
-		return ollama.MessageResponse{}, errors.New("mock: no more responses")
+		return inference.MessageResponse{}, errors.New("mock: no more responses")
 	}
 	return m.postChatResponses[m.postChatIndex], nil
 }
 
-func (m *mockOllamaClient) GenerateConversationTitle(_ context.Context, _ string, _ string) (string, error) {
+func (m *mockInferenceClient) GenerateConversationTitle(_ context.Context, _ string, _ string) (string, error) {
 	return m.titleGenResponse, nil
 }
 
-func (m *mockOllamaClient) GetModelId(_ string) string {
-	return m.modelId
+type errMockInferenceClient struct{}
+
+func (m *errMockInferenceClient) GetModels() []config.Model {
+	return []config.Model{{Name: "llama3.2"}}
 }
 
-type errOllamaClient struct{}
-
-func (m *errOllamaClient) GetModels() []ollama.Model {
-	return []ollama.Model{{Name: "llama3.2"}}
+func (m *errMockInferenceClient) PostChat(_ context.Context, _ string, _ []inference.HistoryMessage, _ bool) (inference.MessageResponse, error) {
+	return inference.MessageResponse{}, errors.New("service connection refused")
 }
 
-func (m *errOllamaClient) PostChat(_ context.Context, _ string, _ []ollama.HistoryMessage, _ bool) (ollama.MessageResponse, error) {
-	return ollama.MessageResponse{}, errors.New("ollama connection refused")
-}
-
-func (m *errOllamaClient) GenerateConversationTitle(_ context.Context, _ string, _ string) (string, error) {
+func (m *errMockInferenceClient) GenerateConversationTitle(_ context.Context, _ string, _ string) (string, error) {
 	return "", nil
 }
 
-func (m *errOllamaClient) GetModelId(_ string) string {
-	return "llama3.2:latest"
-}
-
-func newTestMux(handler *Handler) http.Handler {
+// newTestMux builds a ServeMux wired to the handler so PathValue works.
+func newTestMux(handler Handler) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /chat", handler.Chat)
 	mux.HandleFunc("GET /conversation/{id}", handler.GetFullConversation)
@@ -116,12 +109,11 @@ func TestChat_HappyPath_NewConversation(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	mock := &mockOllamaClient{
-		models: []ollama.Model{{Name: "llama3.2"}},
-		modelId: "llama3.2:latest",
+	mock := &mockInferenceClient{
+		models: []config.Model{{Name: "llama3.2"}},
 		titleGenResponse: "My New Chat",
-		postChatResponses: []ollama.MessageResponse{{
-			Response: ollama.HistoryMessage{
+		postChatResponses: []inference.MessageResponse{{
+			Response: inference.HistoryMessage{
 				Role:    "assistant",
 				Content: "Hello!",
 			},
@@ -130,7 +122,7 @@ func TestChat_HappyPath_NewConversation(t *testing.T) {
 		}},
 	}
 
-	handler := New(mock, db)
+	handler := Handler{service: chatService.NewChatServiceForTesting(db, mock)}
 	mux := newTestMux(handler)
 
 	body := `{"model":"llama3.2","message":"Hey","conversationId":-1}`
@@ -151,8 +143,8 @@ func TestChat_MalformedJSON(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	h := Handler{service: chatService.NewChatService(db, &mockOllamaClient{})}
-	mux := newTestMux(&h)
+	h := Handler{service: chatService.NewChatServiceForTesting(db, &mockInferenceClient{})}
+	mux := newTestMux(h)
 
 	req := httptest.NewRequest(http.MethodPost, "/chat", strings.NewReader(`{bad json`))
 	rec := httptest.NewRecorder()
@@ -165,11 +157,11 @@ func TestChat_ModelNotFound(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	mock := &mockOllamaClient{
-		models: []ollama.Model{{Name: "llama3.2"}},
+	mock := &mockInferenceClient{
+		models: []config.Model{{Name: "llama3.2"}},
 	}
 
-	handler := New(mock, db)
+	handler := Handler{service: chatService.NewChatServiceForTesting(db, mock)}
 	mux := newTestMux(handler)
 
 	body := `{"model":"nonexistent","message":"hello","conversationId":-1}`
@@ -187,11 +179,11 @@ func TestChat_InvalidConversationID(t *testing.T) {
 	cid := insertConversation(t, db, "valid")
 	_ = cid
 
-	mock := &mockOllamaClient{
-		models: []ollama.Model{{Name: "llama3.2"}},
+	mock := &mockInferenceClient{
+		models: []config.Model{{Name: "llama3.2"}},
 	}
 
-	handler := New(mock, db)
+	handler := Handler{service: chatService.NewChatServiceForTesting(db, mock)}
 	mux := newTestMux(handler)
 
 	body := `{"model":"llama3.2","message":"hello","conversationId":99999}`
@@ -208,9 +200,7 @@ func TestChat_GenericServiceError(t *testing.T) {
 
 	cid := insertConversation(t, db, "error test")
 
-	mock := &errOllamaClient{}
-
-	handler := New(mock, db)
+	handler := Handler{service: chatService.NewChatServiceForTesting(db, &errMockInferenceClient{})}
 	mux := newTestMux(handler)
 
 	body := `{"model":"llama3.2","message":"hello","conversationId":` + strconv.Itoa(cid) + `}`
@@ -219,6 +209,52 @@ func TestChat_GenericServiceError(t *testing.T) {
 	mux.ServeHTTP(rec, req)
 
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
+}
+
+func TestChat_WithToolCalls_Success(t *testing.T) {
+	db := newTestDB(t)
+	defer db.Close()
+
+	cid := insertConversation(t, db, "tool calls")
+
+	mockCall := []tools.ToolCall{
+		{Function: tools.Function{Name: "get_current_time", Arguments: nil}},
+	}
+	firstResponse := inference.MessageResponse{
+		Response: inference.HistoryMessage{
+			Role:      "assistant",
+			Content:   "",
+			ToolCalls: mockCall,
+		},
+		TokenCount: 10,
+	}
+	secondResponse := inference.MessageResponse{
+		Response: inference.HistoryMessage{
+			Role:    "assistant",
+			Content: "The time was returned by the tool.",
+		},
+		TokenCount:       20,
+		PromptTokenCount: 15,
+	}
+
+	mock := &mockInferenceClient{
+		models:            []config.Model{{Name: "llama3.2"}},
+		postChatResponses: []inference.MessageResponse{firstResponse, secondResponse},
+	}
+
+	handler := Handler{service: chatService.NewChatServiceForTesting(db, mock)}
+	mux := newTestMux(handler)
+
+	body := `{"model":"llama3.2","message":"What time is it?","conversationId":` + strconv.Itoa(cid) + `}`
+	req := httptest.NewRequest(http.MethodPost, "/chat", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var result []dto.Answer
+	require.NoError(t, decodeBody(rec.Body, &result))
+	assert.GreaterOrEqual(t, len(result), 2)
 }
 
 // --- GET /conversation/{id} tests ---
@@ -231,8 +267,8 @@ func TestGetFullConversation_SuccessWithMessages(t *testing.T) {
 	insertMessage(t, db, "user", "hey", cid, 5)
 	insertMessage(t, db, "assistant", "hi there!", cid, 10)
 
-	h := Handler{service: chatService.NewChatService(db, &mockOllamaClient{})}
-	mux := newTestMux(&h)
+	h := Handler{service: chatService.NewChatServiceForTesting(db, &mockInferenceClient{})}
+	mux := newTestMux(h)
 
 	req := httptest.NewRequest(http.MethodGet, "/conversation/"+strconv.Itoa(cid), nil)
 	rec := httptest.NewRecorder()
@@ -256,8 +292,8 @@ func TestGetFullConversation_Success_EmptyConversation(t *testing.T) {
 
 	cid := insertConversation(t, db, "empty convo")
 
-	h := Handler{service: chatService.NewChatService(db, &mockOllamaClient{})}
-	mux := newTestMux(&h)
+	h := Handler{service: chatService.NewChatServiceForTesting(db, &mockInferenceClient{})}
+	mux := newTestMux(h)
 
 	req := httptest.NewRequest(http.MethodGet, "/conversation/"+strconv.Itoa(cid), nil)
 	rec := httptest.NewRecorder()
@@ -274,8 +310,8 @@ func TestGetFullConversation_NonNumericID(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	h := Handler{service: chatService.NewChatService(db, &mockOllamaClient{})}
-	mux := newTestMux(&h)
+	h := Handler{service: chatService.NewChatServiceForTesting(db, &mockInferenceClient{})}
+	mux := newTestMux(h)
 
 	req := httptest.NewRequest(http.MethodGet, "/conversation/abc", nil)
 	rec := httptest.NewRecorder()
@@ -288,8 +324,8 @@ func TestGetFullConversation_NegativeID(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	h := Handler{service: chatService.NewChatService(db, &mockOllamaClient{})}
-	mux := newTestMux(&h)
+	h := Handler{service: chatService.NewChatServiceForTesting(db, &mockInferenceClient{})}
+	mux := newTestMux(h)
 
 	req := httptest.NewRequest(http.MethodGet, "/conversation/-1", nil)
 	rec := httptest.NewRecorder()
@@ -302,8 +338,8 @@ func TestGetFullConversation_ZeroID(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	h := Handler{service: chatService.NewChatService(db, &mockOllamaClient{})}
-	mux := newTestMux(&h)
+	h := Handler{service: chatService.NewChatServiceForTesting(db, &mockInferenceClient{})}
+	mux := newTestMux(h)
 
 	req := httptest.NewRequest(http.MethodGet, "/conversation/0", nil)
 	rec := httptest.NewRecorder()
@@ -316,8 +352,8 @@ func TestGetFullConversation_NotFound(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	h := Handler{service: chatService.NewChatService(db, &mockOllamaClient{})}
-	mux := newTestMux(&h)
+	h := Handler{service: chatService.NewChatServiceForTesting(db, &mockInferenceClient{})}
+	mux := newTestMux(h)
 
 	req := httptest.NewRequest(http.MethodGet, "/conversation/99999", nil)
 	rec := httptest.NewRecorder()
@@ -335,8 +371,8 @@ func TestGetFullConversation_GenericError(t *testing.T) {
 	_, err := db.Exec("DROP TABLE messages")
 	require.NoError(t, err)
 
-	h := Handler{service: chatService.NewChatService(db, &mockOllamaClient{})}
-	mux := newTestMux(&h)
+	h := Handler{service: chatService.NewChatServiceForTesting(db, &mockInferenceClient{})}
+	mux := newTestMux(h)
 
 	req := httptest.NewRequest(http.MethodGet, "/conversation/"+strconv.Itoa(cid), nil)
 	rec := httptest.NewRecorder()

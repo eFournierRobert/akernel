@@ -35,7 +35,7 @@ func New(config config.Config) Service {
 }
 
 // GetModels returns the list of configured AI models.
-func (s *Service) GetModels() []config.Model {
+func (s Service) GetModels() []config.Model {
 	return s.models
 }
 
@@ -53,7 +53,7 @@ func (s *Service) GetModel(modelName string) (config.Model, error) {
 
 // PostChat resolves the requested model, prepends the system prompt to the conversation history,
 // and dispatches the request to the appropriate provider. It returns the completed response or an error.
-func (s *Service) PostChat(ctx context.Context, model string, history []HistoryMessage, thinking bool) (MessageResponse, error) {
+func (s Service) PostChat(ctx context.Context, model string, history []HistoryMessage, thinking bool) (MessageResponse, error) {
 	fullModel, err := s.GetModel(model)
 	if err != nil {
 		return MessageResponse{}, err
@@ -83,7 +83,7 @@ func (s *Service) PostChat(ctx context.Context, model string, history []HistoryM
 
 // GenerateConversationTitle produces a short title for a user message by sending a summary prompt to the model.
 // It returns an error if the inference call fails or returns empty content.
-func (s *Service) GenerateConversationTitle(ctx context.Context, message, model string) (string, error) {
+func (s Service) GenerateConversationTitle(ctx context.Context, message, model string) (string, error) {
 	titlePrompt := fmt.Sprintf("Generate a small conversation title for this message. Do not make propositions. Just answer with the title. Message: %s", message)
 
 	history := []HistoryMessage{{Role: "user", Content: titlePrompt}}

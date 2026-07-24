@@ -20,7 +20,7 @@ import (
 type Service struct {
 	repository  conversation.Repository
 	messageRepo message.Repository
-	inference   inference.Service
+	inference   inference.InferenceClient
 }
 
 // New constructs a new Service implementation, initializing repositories and the inference service.
@@ -29,6 +29,15 @@ func New(db *sqlx.DB, config config.Config) Service {
 		repository:  conversation.New(db),
 		messageRepo: message.New(db),
 		inference:   inference.New(config),
+	}
+}
+
+// NewForTesting constructs a Service with the given injection dependencies, intended for use in tests.
+func NewForTesting(db *sqlx.DB, inferenceClient inference.InferenceClient) Service {
+	return Service{
+		repository:  conversation.New(db),
+		messageRepo: message.New(db),
+		inference:   inferenceClient,
 	}
 }
 
