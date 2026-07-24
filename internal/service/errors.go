@@ -3,7 +3,7 @@ package service
 
 import "errors"
 
-// ErrModelNotFound indicates that the Ollama model requested by the user was not found on the server.
+// ErrModelNotFound indicates that the LLM model requested by the user was not found in the configuration.
 var ErrModelNotFound = errors.New("given model not found")
 
 // ErrInvalidConversation indicates a request references a conversation ID out of bounds or nonexistent.

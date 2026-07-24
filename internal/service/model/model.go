@@ -13,7 +13,7 @@ type Service struct {
 	inference inference.Service
 }
 
-// New creates a new Service that includes the given Ollama service.
+// New creates a new Service that includes the given inference service.
 func New(config config.Config) Service {
 	return Service{
 		inference: inference.New(config),

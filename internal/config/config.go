@@ -10,7 +10,7 @@ import (
 	"github.com/adrg/xdg"
 )
 
-// Model maps a user-facing nickname to an actual Ollama model ID with a description.
+// Model maps a user-facing nickname to an LLM provider's model ID with a description and provider label.
 type Model struct {
 	Name        string
 	Id          string

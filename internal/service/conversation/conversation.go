@@ -23,7 +23,7 @@ type Service struct {
 	inference   inference.Service
 }
 
-// New constructs a new Service implementation, initializing repositories and Ollama client.
+// New constructs a new Service implementation, initializing repositories and the inference service.
 func New(db *sqlx.DB, config config.Config) Service {
 	return Service{
 		repository:  conversation.New(db),
@@ -68,7 +68,7 @@ func (s *Service) CreateNewSummary(ctx context.Context, conversationId int, mode
 		return fmt.Errorf("create new summary: %w", service.ErrConversationDoesNotExist)
 	}
 
-	fullConvo, err := s.selectFullConvoIntoOllamaHistoryMessages(conversationId)
+	fullConvo, err := s.selectFullConvoIntoInferenceHistoryMessages(conversationId)
 	if err != nil {
 		return err
 	}
@@ -108,8 +108,8 @@ func (s *Service) CreateNewSummary(ctx context.Context, conversationId int, mode
 	return nil
 }
 
-// selectFullConvoIntoOllamaHistoryMessages retrieves all messages for a conversation ID and maps them into ollama.HistoryMessage format.
-func (s *Service) selectFullConvoIntoOllamaHistoryMessages(conversationId int) ([]inference.HistoryMessage, error) {
+// selectFullConvoIntoInferenceHistoryMessages retrieves all messages for a conversation ID and maps them into inference.HistoryMessage format.
+func (s *Service) selectFullConvoIntoInferenceHistoryMessages(conversationId int) ([]inference.HistoryMessage, error) {
 	messages, err := s.messageRepo.SelectFullConversation(conversationId)
 	if err != nil {
 		return nil, err
