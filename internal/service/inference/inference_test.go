@@ -256,5 +256,5 @@ func (m *mockWithCapture) PostChat(_ context.Context, modelID string, history []
 	if m.onCallAndHistory != nil {
 		m.onCallAndHistory(modelID, history)
 	}
-	return m.mockOllamaClient.PostChat(nil, modelID, history, false)
+	return m.mockOllamaClient.PostChat(context.TODO(), modelID, history, false)
 }
