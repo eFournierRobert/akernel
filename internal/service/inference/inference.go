@@ -17,7 +17,7 @@ import (
 type Service struct {
 	systemPrompt  HistoryMessage
 	models        []config.Model
-	ollamaService ollama.Service
+	ollamaService ollamaClient
 }
 
 // New creates a new Service from the given configuration, initializing the system prompt and model list.

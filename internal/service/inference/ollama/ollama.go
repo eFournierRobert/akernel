@@ -27,7 +27,7 @@ func New() Service {
 }
 
 // PostChat sends a message along with conversation history to the specified Ollama model and returns the generated response.
-func (s *Service) PostChat(ctx context.Context, modelName string, history []HistoryMessage, thinking bool) (MessageResponse, error) {
+func (s Service) PostChat(ctx context.Context, modelName string, history []HistoryMessage, thinking bool) (MessageResponse, error) {
 	body := Message{
 		Model:     modelName,
 		Messages:  history,
