@@ -7,6 +7,7 @@ import (
 	"akernel/internal/handlers/model"
 	"akernel/internal/middleware"
 	"akernel/internal/repository"
+	"akernel/internal/service/inference"
 	"flag"
 	"log"
 	"net/http"
@@ -28,9 +29,11 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	chatHandler := chat.New(config, db)
-	modelHandler := model.New(config)
-	conversationHandler := conversation.New(db, config)
+	inference := inference.New(config)
+
+	chatHandler := chat.New(db, inference)
+	modelHandler := model.New(inference)
+	conversationHandler := conversation.New(db, inference)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /chat", chatHandler.Chat)

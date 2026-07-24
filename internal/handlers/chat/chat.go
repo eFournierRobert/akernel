@@ -2,10 +2,10 @@
 package chat
 
 import (
-	"akernel/internal/config"
 	"akernel/internal/handlers/dto"
 	"akernel/internal/service"
 	"akernel/internal/service/chat"
+	"akernel/internal/service/inference"
 	"encoding/json"
 	"errors"
 	"io"
@@ -22,8 +22,8 @@ type Handler struct {
 }
 
 // New creates a new instance of Handler with the required services.
-func New(config config.Config, database *sqlx.DB) *Handler {
-	chatService := chat.NewChatService(database, config)
+func New(database *sqlx.DB, inference inference.InferenceClient) *Handler {
+	chatService := chat.NewChatService(database, inference)
 
 	return &Handler{
 		service: chatService,

@@ -2,10 +2,10 @@
 package conversation
 
 import (
-	"akernel/internal/config"
 	"akernel/internal/handlers/dto"
 	"akernel/internal/service"
 	"akernel/internal/service/conversation"
+	"akernel/internal/service/inference"
 	"encoding/json"
 	"errors"
 	"io"
@@ -22,9 +22,9 @@ type Handler struct {
 }
 
 // New creates a new working Handler.
-func New(db *sqlx.DB, config config.Config) Handler {
+func New(db *sqlx.DB, inference inference.InferenceClient) Handler {
 	return Handler{
-		service: conversation.New(db, config),
+		service: conversation.New(db, inference),
 	}
 }
 

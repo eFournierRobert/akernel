@@ -37,8 +37,8 @@ func TestPostChat_Success(t *testing.T) {
 	setupTestServer(t, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(MessageResponse{
-			Model:  "llama3.2:latest",
-			Done:   true,
+			Model: "llama3.2:latest",
+			Done:  true,
 			Response: HistoryMessage{
 				Role:    "assistant",
 				Content: "hello back",

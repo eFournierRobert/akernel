@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -110,7 +111,7 @@ func TestChat_HappyPath_NewConversation(t *testing.T) {
 	defer db.Close()
 
 	mock := &mockInferenceClient{
-		models: []config.Model{{Name: "llama3.2"}},
+		models:           []config.Model{{Name: "llama3.2"}},
 		titleGenResponse: "My New Chat",
 		postChatResponses: []inference.MessageResponse{{
 			Response: inference.HistoryMessage{
@@ -122,7 +123,7 @@ func TestChat_HappyPath_NewConversation(t *testing.T) {
 		}},
 	}
 
-	handler := Handler{service: chatService.NewChatServiceForTesting(db, mock)}
+	handler := Handler{service: chatService.NewChatService(db, mock)}
 	mux := newTestMux(handler)
 
 	body := `{"model":"llama3.2","message":"Hey","conversationId":-1}`
@@ -143,7 +144,7 @@ func TestChat_MalformedJSON(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	h := Handler{service: chatService.NewChatServiceForTesting(db, &mockInferenceClient{})}
+	h := Handler{service: chatService.NewChatService(db, &mockInferenceClient{})}
 	mux := newTestMux(h)
 
 	req := httptest.NewRequest(http.MethodPost, "/chat", strings.NewReader(`{bad json`))
@@ -161,7 +162,7 @@ func TestChat_ModelNotFound(t *testing.T) {
 		models: []config.Model{{Name: "llama3.2"}},
 	}
 
-	handler := Handler{service: chatService.NewChatServiceForTesting(db, mock)}
+	handler := Handler{service: chatService.NewChatService(db, mock)}
 	mux := newTestMux(handler)
 
 	body := `{"model":"nonexistent","message":"hello","conversationId":-1}`
@@ -176,14 +177,11 @@ func TestChat_InvalidConversationID(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	cid := insertConversation(t, db, "valid")
-	_ = cid
-
 	mock := &mockInferenceClient{
 		models: []config.Model{{Name: "llama3.2"}},
 	}
 
-	handler := Handler{service: chatService.NewChatServiceForTesting(db, mock)}
+	handler := Handler{service: chatService.NewChatService(db, mock)}
 	mux := newTestMux(handler)
 
 	body := `{"model":"llama3.2","message":"hello","conversationId":99999}`
@@ -200,7 +198,7 @@ func TestChat_GenericServiceError(t *testing.T) {
 
 	cid := insertConversation(t, db, "error test")
 
-	handler := Handler{service: chatService.NewChatServiceForTesting(db, &errMockInferenceClient{})}
+	handler := Handler{service: chatService.NewChatService(db, &errMockInferenceClient{})}
 	mux := newTestMux(handler)
 
 	body := `{"model":"llama3.2","message":"hello","conversationId":` + strconv.Itoa(cid) + `}`
@@ -242,7 +240,7 @@ func TestChat_WithToolCalls_Success(t *testing.T) {
 		postChatResponses: []inference.MessageResponse{firstResponse, secondResponse},
 	}
 
-	handler := Handler{service: chatService.NewChatServiceForTesting(db, mock)}
+	handler := Handler{service: chatService.NewChatService(db, mock)}
 	mux := newTestMux(handler)
 
 	body := `{"model":"llama3.2","message":"What time is it?","conversationId":` + strconv.Itoa(cid) + `}`
@@ -267,7 +265,7 @@ func TestGetFullConversation_SuccessWithMessages(t *testing.T) {
 	insertMessage(t, db, "user", "hey", cid, 5)
 	insertMessage(t, db, "assistant", "hi there!", cid, 10)
 
-	h := Handler{service: chatService.NewChatServiceForTesting(db, &mockInferenceClient{})}
+	h := Handler{service: chatService.NewChatService(db, &mockInferenceClient{})}
 	mux := newTestMux(h)
 
 	req := httptest.NewRequest(http.MethodGet, "/conversation/"+strconv.Itoa(cid), nil)
@@ -292,7 +290,7 @@ func TestGetFullConversation_Success_EmptyConversation(t *testing.T) {
 
 	cid := insertConversation(t, db, "empty convo")
 
-	h := Handler{service: chatService.NewChatServiceForTesting(db, &mockInferenceClient{})}
+	h := Handler{service: chatService.NewChatService(db, &mockInferenceClient{})}
 	mux := newTestMux(h)
 
 	req := httptest.NewRequest(http.MethodGet, "/conversation/"+strconv.Itoa(cid), nil)
@@ -310,7 +308,7 @@ func TestGetFullConversation_NonNumericID(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	h := Handler{service: chatService.NewChatServiceForTesting(db, &mockInferenceClient{})}
+	h := Handler{service: chatService.NewChatService(db, &mockInferenceClient{})}
 	mux := newTestMux(h)
 
 	req := httptest.NewRequest(http.MethodGet, "/conversation/abc", nil)
@@ -324,7 +322,7 @@ func TestGetFullConversation_NegativeID(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	h := Handler{service: chatService.NewChatServiceForTesting(db, &mockInferenceClient{})}
+	h := Handler{service: chatService.NewChatService(db, &mockInferenceClient{})}
 	mux := newTestMux(h)
 
 	req := httptest.NewRequest(http.MethodGet, "/conversation/-1", nil)
@@ -338,7 +336,7 @@ func TestGetFullConversation_ZeroID(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	h := Handler{service: chatService.NewChatServiceForTesting(db, &mockInferenceClient{})}
+	h := Handler{service: chatService.NewChatService(db, &mockInferenceClient{})}
 	mux := newTestMux(h)
 
 	req := httptest.NewRequest(http.MethodGet, "/conversation/0", nil)
@@ -352,7 +350,7 @@ func TestGetFullConversation_NotFound(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	h := Handler{service: chatService.NewChatServiceForTesting(db, &mockInferenceClient{})}
+	h := Handler{service: chatService.NewChatService(db, &mockInferenceClient{})}
 	mux := newTestMux(h)
 
 	req := httptest.NewRequest(http.MethodGet, "/conversation/99999", nil)
@@ -371,7 +369,7 @@ func TestGetFullConversation_GenericError(t *testing.T) {
 	_, err := db.Exec("DROP TABLE messages")
 	require.NoError(t, err)
 
-	h := Handler{service: chatService.NewChatServiceForTesting(db, &mockInferenceClient{})}
+	h := Handler{service: chatService.NewChatService(db, &mockInferenceClient{})}
 	mux := newTestMux(h)
 
 	req := httptest.NewRequest(http.MethodGet, "/conversation/"+strconv.Itoa(cid), nil)
@@ -381,7 +379,6 @@ func TestGetFullConversation_GenericError(t *testing.T) {
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
-func decodeBody(r interface{ String() string }, target interface{}) error {
-	decoder := json.NewDecoder(strings.NewReader(r.String()))
-	return decoder.Decode(target)
+func decodeBody(r io.Reader, target interface{}) error {
+	return json.NewDecoder(r).Decode(target)
 }

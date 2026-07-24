@@ -2,7 +2,7 @@
 package model
 
 import (
-	"akernel/internal/config"
+	"akernel/internal/service/inference"
 	"akernel/internal/service/model"
 	"encoding/json"
 	"log"
@@ -15,9 +15,9 @@ type Handler struct {
 }
 
 // New creates a new working Handler.
-func New(config config.Config) Handler {
+func New(inference inference.InferenceClient) Handler {
 	return Handler{
-		service: model.New(config),
+		service: model.New(inference),
 	}
 }
 

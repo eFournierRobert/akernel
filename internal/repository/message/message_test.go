@@ -296,7 +296,11 @@ func TestSelectAllMessagesAfterLastPrompt_Basic(t *testing.T) {
 	assert.Len(t, messages, 2)
 }
 
-func TestSelectAllMessagesAfterLastPrompt_MinIdOnDuplicate(t *testing.T) {
+// TestSelectAllMessagesAfterLastPrompt_DuplicatePromptUsesLastOccurrence is a
+// bug-exposure test. Expected behavior (per the function name and doc comment):
+// messages after the MOST RECENT occurrence of the prompt. Currently the query
+// uses MIN(id), so a repeated prompt returns messages after the FIRST occurrence.
+func TestSelectAllMessagesAfterLastPrompt_DuplicatePromptUsesLastOccurrence(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 	repo := New(db)
@@ -311,8 +315,8 @@ func TestSelectAllMessagesAfterLastPrompt_MinIdOnDuplicate(t *testing.T) {
 
 	messages, err := repo.SelectAllMessagesAfterLastPrompt(cid, "repeat")
 	require.NoError(t, err)
-	// MIN(id) of "repeat" is the first occurrence. Messages after that: a2, repeat(2nd), a3
-	assert.Len(t, messages, 3)
+	require.Len(t, messages, 1)
+	assert.Equal(t, "a3", messages[0].Content)
 }
 
 func TestSelectAllMessagesAfterLastPrompt_NotFound(t *testing.T) {

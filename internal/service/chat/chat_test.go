@@ -52,12 +52,12 @@ func insertMessage(t *testing.T, db *sqlx.DB, role, content string, conversation
 }
 
 type mockInferenceClient struct {
-	models               []config.Model
-	postChatResponses    []inference.MessageResponse
-	postChatIndex        int
-	postChatErr          error
-	titleGenResponse     string
-	titleGenErr          error
+	models            []config.Model
+	postChatResponses []inference.MessageResponse
+	postChatIndex     int
+	postChatErr       error
+	titleGenResponse  string
+	titleGenErr       error
 }
 
 func (m *mockInferenceClient) GetModels() []config.Model {
@@ -67,15 +67,15 @@ func (m *mockInferenceClient) GetModels() []config.Model {
 func (m *mockInferenceClient) PostChat(_ context.Context, _ string, _ []inference.HistoryMessage, _ bool) (inference.MessageResponse, error) {
 	defer func() { m.postChatIndex++ }()
 
+	if m.postChatIndex < len(m.postChatResponses) {
+		return m.postChatResponses[m.postChatIndex], nil
+	}
+
 	if m.postChatErr != nil {
 		return inference.MessageResponse{}, m.postChatErr
 	}
 
-	if m.postChatIndex >= len(m.postChatResponses) {
-		return inference.MessageResponse{}, errors.New("mock: no more responses")
-	}
-
-	return m.postChatResponses[m.postChatIndex], nil
+	return inference.MessageResponse{}, errors.New("mock: no more responses")
 }
 
 func (m *mockInferenceClient) GenerateConversationTitle(_ context.Context, _ string, _ string) (string, error) {
@@ -96,7 +96,7 @@ func TestGeneratePromptAnswer_HappyPath_NewConversation(t *testing.T) {
 	defer db.Close()
 
 	mock := &mockInferenceClient{
-		models: []config.Model{{Name: "llama3.2"}},
+		models:           []config.Model{{Name: "llama3.2"}},
 		titleGenResponse: "New Chat",
 		postChatResponses: []inference.MessageResponse{{
 			Response: inference.HistoryMessage{
@@ -215,8 +215,7 @@ func TestGeneratePromptAnswer_InvalidConversationId(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	cid1 := insertConversation(t, db, "valid")
-	_ = cid1
+	insertConversation(t, db, "valid")
 
 	testCases := []struct {
 		name         string
@@ -271,14 +270,101 @@ func TestGeneratePromptAnswer_OllamaPostChatError_RollsBack(t *testing.T) {
 	assert.Equal(t, 0, count)
 }
 
+// TestGeneratePromptAnswer_PostChatError_PreservesPriorHistory is a bug-exposure
+// test. Expected behavior: when inference fails, only the new prompt is rolled
+// back. Currently the last user message is popped twice (once in
+// getHistoryAndPostChat and once in GeneratePromptAnswer), silently deleting a
+// prior user message.
+func TestGeneratePromptAnswer_PostChatError_PreservesPriorHistory(t *testing.T) {
+	db := newTestDB(t)
+	defer db.Close()
+
+	cid := insertConversation(t, db, "rollback with history")
+	insertMessage(t, db, "user", "earlier question", cid, 10)
+	insertMessage(t, db, "assistant", "earlier answer", cid, 20)
+
+	mock := &mockInferenceClient{
+		models:      []config.Model{{Name: "llama3.2"}},
+		postChatErr: errors.New("ollama down"),
+	}
+
+	svc := newTestService(t, db, mock)
+	_, err := svc.GeneratePromptAnswer(context.Background(), &dto.Prompt{
+		Model:          "llama3.2",
+		Message:        "Hello",
+		ConversationId: cid,
+	})
+
+	assert.Error(t, err)
+
+	var contents []string
+	require.NoError(t, db.Select(&contents,
+		"SELECT content FROM messages WHERE conversation_id = ? ORDER BY id", cid))
+	assert.Equal(t, []string{"earlier question", "earlier answer"}, contents)
+}
+
+// TestGeneratePromptAnswer_ToolCallThenError_PreservesPriorHistory is a
+// bug-exposure test covering the same double-pop on the error path after tool
+// calls have been made.
+func TestGeneratePromptAnswer_ToolCallThenError_PreservesPriorHistory(t *testing.T) {
+	db := newTestDB(t)
+	defer db.Close()
+
+	cid := insertConversation(t, db, "tool rollback with history")
+	insertMessage(t, db, "user", "earlier question", cid, 10)
+	insertMessage(t, db, "assistant", "earlier answer", cid, 20)
+
+	mock := &mockInferenceClient{
+		models: []config.Model{{Name: "llama3.2"}},
+		postChatResponses: []inference.MessageResponse{{
+			Response: inference.HistoryMessage{
+				Role: "assistant",
+				ToolCalls: []tools.ToolCall{
+					{Function: tools.Function{Name: "get_current_time", Arguments: nil}},
+				},
+			},
+			TokenCount: 10,
+		}},
+		postChatErr: errors.New("ollama down"),
+	}
+
+	svc := newTestService(t, db, mock)
+	_, err := svc.GeneratePromptAnswer(context.Background(), &dto.Prompt{
+		Model:          "llama3.2",
+		Message:        "What time is it?",
+		ConversationId: cid,
+	})
+
+	assert.Error(t, err)
+
+	var count int
+	require.NoError(t, db.Get(&count,
+		"SELECT COUNT(*) FROM messages WHERE conversation_id = ? AND content = 'earlier question'", cid))
+	assert.Equal(t, 1, count)
+}
+
+// TestGeneratePromptAnswer_ContextCancelled_RollsBack is a bug-exposure test.
+// Expected behavior: when the context is cancelled, GeneratePromptAnswer returns
+// an error and rolls back ONLY the new prompt, leaving prior history intact.
+// Currently the mock's valid response makes PostChat succeed, so the service hits
+// the `ctx.Err() != nil` branch, pops a SECOND user message, and returns (nil, nil).
 func TestGeneratePromptAnswer_ContextCancelled_RollsBack(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
 	cid := insertConversation(t, db, "ctx test")
+	insertMessage(t, db, "user", "earlier question", cid, 10)
+	insertMessage(t, db, "assistant", "earlier answer", cid, 20)
 
 	svc := newTestService(t, db, &mockInferenceClient{
 		models: []config.Model{{Name: "llama3.2"}},
+		postChatResponses: []inference.MessageResponse{{
+			Response: inference.HistoryMessage{
+				Role:    "assistant",
+				Content: "late answer",
+			},
+			TokenCount: 10,
+		}},
 	})
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -292,9 +378,10 @@ func TestGeneratePromptAnswer_ContextCancelled_RollsBack(t *testing.T) {
 
 	assert.Error(t, err)
 
-	var count int
-	require.NoError(t, db.Get(&count, "SELECT COUNT(*) FROM messages WHERE conversation_id = ?", cid))
-	assert.Equal(t, 0, count)
+	var contents []string
+	require.NoError(t, db.Select(&contents,
+		"SELECT content FROM messages WHERE conversation_id = ? ORDER BY id", cid))
+	assert.Equal(t, []string{"earlier question", "earlier answer"}, contents)
 }
 
 func TestGeneratePromptAnswer_EmptyResponse(t *testing.T) {

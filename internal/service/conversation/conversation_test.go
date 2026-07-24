@@ -70,6 +70,15 @@ func (m *mockInferenceClient) GenerateConversationTitle(_ context.Context, _ str
 	return "", nil
 }
 
+func newTestService(t *testing.T, db *sqlx.DB, mock inference.InferenceClient) Service {
+	t.Helper()
+	return Service{
+		repository:  conversation.New(db),
+		messageRepo: message.New(db),
+		inference:   mock,
+	}
+}
+
 func TestFetchConversations_Populated(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
@@ -77,11 +86,7 @@ func TestFetchConversations_Populated(t *testing.T) {
 	cid1 := insertConversation(t, db, "first")
 	cid2 := insertConversation(t, db, "second")
 
-	svc := Service{
-		repository:  conversation.New(db),
-		messageRepo: message.New(db),
-		inference:   &mockInferenceClient{},
-	}
+	svc := newTestService(t, db, &mockInferenceClient{})
 	result, err := svc.FetchConversations()
 
 	require.NoError(t, err)
@@ -94,11 +99,7 @@ func TestFetchConversations_Empty(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	svc := Service{
-		repository:  conversation.New(db),
-		messageRepo: message.New(db),
-		inference:   &mockInferenceClient{},
-	}
+	svc := newTestService(t, db, &mockInferenceClient{})
 	result, err := svc.FetchConversations()
 
 	require.NoError(t, err)
@@ -111,11 +112,7 @@ func TestDeleteConversation_Success(t *testing.T) {
 
 	cid := insertConversation(t, db, "delete me")
 
-	svc := Service{
-		repository:  conversation.New(db),
-		messageRepo: message.New(db),
-		inference:   &mockInferenceClient{},
-	}
+	svc := newTestService(t, db, &mockInferenceClient{})
 	err := svc.DeleteConversation(cid)
 
 	assert.NoError(t, err)
@@ -129,11 +126,7 @@ func TestDeleteConversation_NotFound(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	svc := Service{
-		repository:  conversation.New(db),
-		messageRepo: message.New(db),
-		inference:   &mockInferenceClient{},
-	}
+	svc := newTestService(t, db, &mockInferenceClient{})
 	err := svc.DeleteConversation(9999)
 
 	assert.Error(t, err)
@@ -148,19 +141,15 @@ func TestCreateNewSummary_HappyPath(t *testing.T) {
 	insertMessage(t, db, "user", "hello", cid, 10)
 	insertMessage(t, db, "assistant", "hi back", cid, 20)
 
-	svc := Service{
-		repository:  conversation.New(db),
-		messageRepo: message.New(db),
-		inference: &mockInferenceClient{
-			response: inference.MessageResponse{
-				Response: inference.HistoryMessage{
-					Role:    "assistant",
-					Content: "This is the summary.",
-				},
-				TokenCount: 42,
+	svc := newTestService(t, db, &mockInferenceClient{
+		response: inference.MessageResponse{
+			Response: inference.HistoryMessage{
+				Role:    "assistant",
+				Content: "This is the summary.",
 			},
+			TokenCount: 42,
 		},
-	}
+	})
 
 	err := svc.CreateNewSummary(context.Background(), cid, "llama3.2")
 	require.NoError(t, err)
@@ -178,11 +167,7 @@ func TestCreateNewSummary_ConversationNotFound(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	svc := Service{
-		repository:  conversation.New(db),
-		messageRepo: message.New(db),
-		inference:   &mockInferenceClient{},
-	}
+	svc := newTestService(t, db, &mockInferenceClient{})
 	err := svc.CreateNewSummary(context.Background(), 9999, "llama3.2")
 
 	assert.Error(t, err)
@@ -195,18 +180,14 @@ func TestCreateNewSummary_EmptyOllamaResponse(t *testing.T) {
 	cid := insertConversation(t, db, "empty response test")
 	insertMessage(t, db, "user", "hello", cid, 10)
 
-	svc := Service{
-		repository:  conversation.New(db),
-		messageRepo: message.New(db),
-		inference: &mockInferenceClient{
-			response: inference.MessageResponse{
-				Response: inference.HistoryMessage{
-					Role:    "assistant",
-					Content: "",
-				},
+	svc := newTestService(t, db, &mockInferenceClient{
+		response: inference.MessageResponse{
+			Response: inference.HistoryMessage{
+				Role:    "assistant",
+				Content: "",
 			},
 		},
-	}
+	})
 
 	err := svc.CreateNewSummary(context.Background(), cid, "llama3.2")
 	assert.Error(t, err)

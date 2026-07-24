@@ -6,9 +6,9 @@ import (
 	modelservice "akernel/internal/service/model"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"akernel/internal/handlers/dto"
@@ -40,7 +40,7 @@ func (m *mockInferenceClient) GenerateConversationTitle(_ context.Context, _ str
 
 func TestGetModels_SuccessWithResults(t *testing.T) {
 	h := Handler{
-		service: modelservice.NewModelServiceForTesting(&mockInferenceClient{
+		service: modelservice.New(&mockInferenceClient{
 			models: []config.Model{
 				{Name: "llama3.2", Description: "A small model"},
 				{Name: "gemma2", Description: "A larger model"},
@@ -65,7 +65,7 @@ func TestGetModels_SuccessWithResults(t *testing.T) {
 
 func TestGetModels_EmptyList(t *testing.T) {
 	h := Handler{
-		service: modelservice.NewModelServiceForTesting(&mockInferenceClient{
+		service: modelservice.New(&mockInferenceClient{
 			models: []config.Model{},
 		}),
 	}
@@ -82,7 +82,6 @@ func TestGetModels_EmptyList(t *testing.T) {
 	assert.Empty(t, result)
 }
 
-func decodeBody(r interface{ String() string }, target interface{}) error {
-	decoder := json.NewDecoder(strings.NewReader(r.String()))
-	return decoder.Decode(target)
+func decodeBody(r io.Reader, target interface{}) error {
+	return json.NewDecoder(r).Decode(target)
 }

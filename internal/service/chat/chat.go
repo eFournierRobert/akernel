@@ -2,7 +2,6 @@
 package chat
 
 import (
-	"akernel/internal/config"
 	"akernel/internal/handlers/dto"
 	"akernel/internal/repository"
 	"akernel/internal/repository/conversation"
@@ -27,23 +26,14 @@ type Service struct {
 }
 
 // NewChatService initializes a new instance of the Chat Service.
-func NewChatService(db *sqlx.DB, config config.Config) *Service {
+func NewChatService(db *sqlx.DB, inference inference.InferenceClient) *Service {
 	s := Service{
 		messageRepo: message.New(db),
 		convoRepo:   conversation.New(db),
-		inference:   inference.New(config),
+		inference:   inference,
 	}
 
 	return &s
-}
-
-// NewChatServiceForTesting initializes a new Chat Service with explicit injection dependencies, intended for use in tests.
-func NewChatServiceForTesting(db *sqlx.DB, inferenceClient inference.InferenceClient) *Service {
-	return &Service{
-		messageRepo: message.New(db),
-		convoRepo:   conversation.New(db),
-		inference:   inferenceClient,
-	}
 }
 
 // GeneratePromptAnswer takes a user prompt and generates an AI answer. Also creates a conversation if necessary.

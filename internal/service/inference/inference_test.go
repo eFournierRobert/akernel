@@ -154,6 +154,21 @@ func TestPostChat_OllamaError(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestPostChat_ForwardsThinkingFlag(t *testing.T) {
+	var receivedThinking bool
+
+	mock := &mockWithCapture{
+		mockOllamaClient: &mockOllamaClient{response: ollama.MessageResponse{}},
+		onCallThinking:   func(thinking bool) { receivedThinking = thinking },
+	}
+
+	svc := mockService(mock, testOllamaConfig().Models, "system")
+	_, err := svc.PostChat(context.Background(), "llama3.2", nil, true)
+
+	require.NoError(t, err)
+	assert.True(t, receivedThinking)
+}
+
 func TestPostChat_InvalidProvider(t *testing.T) {
 	svc := mockService(nil, []config.Model{
 		{Name: "custom", Id: "custom-model", Description: "", Provider: "unknown-provider"},
@@ -247,14 +262,18 @@ type mockWithCapture struct {
 	*mockOllamaClient
 	onCall           func(string)
 	onCallAndHistory func(string, []ollama.HistoryMessage)
+	onCallThinking   func(bool)
 }
 
-func (m *mockWithCapture) PostChat(_ context.Context, modelID string, history []ollama.HistoryMessage, _ bool) (ollama.MessageResponse, error) {
+func (m *mockWithCapture) PostChat(ctx context.Context, modelID string, history []ollama.HistoryMessage, thinking bool) (ollama.MessageResponse, error) {
 	if m.onCall != nil {
 		m.onCall(modelID)
 	}
 	if m.onCallAndHistory != nil {
 		m.onCallAndHistory(modelID, history)
 	}
-	return m.mockOllamaClient.PostChat(context.TODO(), modelID, history, false)
+	if m.onCallThinking != nil {
+		m.onCallThinking(thinking)
+	}
+	return m.mockOllamaClient.PostChat(ctx, modelID, history, thinking)
 }

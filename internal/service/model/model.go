@@ -2,7 +2,6 @@
 package model
 
 import (
-	"akernel/internal/config"
 	"akernel/internal/handlers/dto"
 	"akernel/internal/service/inference"
 	"context"
@@ -14,16 +13,9 @@ type Service struct {
 }
 
 // New creates a new Service that includes the given inference service.
-func New(config config.Config) Service {
+func New(inference inference.InferenceClient) Service {
 	return Service{
-		inference: inference.New(config),
-	}
-}
-
-// NewModelServiceForTesting creates a new Service with the given inference client, intended for use in tests.
-func NewModelServiceForTesting(inferenceClient inference.InferenceClient) Service {
-	return Service{
-		inference: inferenceClient,
+		inference: inference,
 	}
 }
 

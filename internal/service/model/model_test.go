@@ -2,6 +2,7 @@ package model
 
 import (
 	"akernel/internal/config"
+	"akernel/internal/handlers/dto"
 	"akernel/internal/service/inference"
 	"context"
 	"testing"
@@ -26,38 +27,34 @@ func (m *mockInferenceClient) GenerateConversationTitle(_ context.Context, _ str
 	return "", nil
 }
 
-func TestGetModels_EmptyList(t *testing.T) {
-	svc := Service{
-		inference: &mockInferenceClient{
-			models: []config.Model{},
+func TestGetModels(t *testing.T) {
+	testCases := []struct {
+		name     string
+		models   []config.Model
+		expected []dto.Model
+	}{
+		{
+			name:     "empty list",
+			models:   []config.Model{},
+			expected: nil,
 		},
-	}
-
-	result, err := svc.GetModels(context.Background())
-	require.NoError(t, err)
-	assert.Empty(t, result)
-}
-
-func TestGetModels_SingleModel(t *testing.T) {
-	svc := Service{
-		inference: &mockInferenceClient{
+		{
+			name: "single model",
 			models: []config.Model{
 				{Name: "llama3.2", Description: "A small model"},
 			},
+			expected: []dto.Model{
+				{Name: "llama3.2", Description: "A small model"},
+			},
 		},
-	}
-
-	result, err := svc.GetModels(context.Background())
-	require.NoError(t, err)
-	require.Len(t, result, 1)
-	assert.Equal(t, "llama3.2", result[0].Name)
-	assert.Equal(t, "A small model", result[0].Description)
-}
-
-func TestGetModels_MultipleModels(t *testing.T) {
-	svc := Service{
-		inference: &mockInferenceClient{
+		{
+			name: "multiple models",
 			models: []config.Model{
+				{Name: "small", Description: "Small"},
+				{Name: "medium", Description: "Medium"},
+				{Name: "large", Description: "Large"},
+			},
+			expected: []dto.Model{
 				{Name: "small", Description: "Small"},
 				{Name: "medium", Description: "Medium"},
 				{Name: "large", Description: "Large"},
@@ -65,7 +62,15 @@ func TestGetModels_MultipleModels(t *testing.T) {
 		},
 	}
 
-	result, err := svc.GetModels(context.Background())
-	require.NoError(t, err)
-	assert.Len(t, result, 3)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := Service{
+				inference: &mockInferenceClient{models: tc.models},
+			}
+
+			result, err := svc.GetModels(context.Background())
+			require.NoError(t, err)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
 }

@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -112,7 +113,7 @@ func TestGetConversations_SuccessWithResults(t *testing.T) {
 	insertConversation(t, db, "Meaning of life")
 	insertConversation(t, db, "Go programming help")
 
-	handler := Handler{service: convoservice.NewForTesting(db, &mockInferenceClient{})}
+	handler := Handler{service: convoservice.New(db, &mockInferenceClient{})}
 	mux := newTestMux(handler)
 
 	req := httptest.NewRequest(http.MethodGet, "/conversation", nil)
@@ -131,7 +132,7 @@ func TestGetConversations_EmptyDatabase(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	handler := Handler{service: convoservice.NewForTesting(db, &mockInferenceClient{})}
+	handler := Handler{service: convoservice.New(db, &mockInferenceClient{})}
 	mux := newTestMux(handler)
 
 	req := httptest.NewRequest(http.MethodGet, "/conversation", nil)
@@ -152,7 +153,7 @@ func TestGetConversations_ServiceError(t *testing.T) {
 	_, err := db.Exec("DROP TABLE conversations")
 	require.NoError(t, err)
 
-	handler := Handler{service: convoservice.NewForTesting(db, &mockInferenceClient{})}
+	handler := Handler{service: convoservice.New(db, &mockInferenceClient{})}
 	mux := newTestMux(handler)
 
 	req := httptest.NewRequest(http.MethodGet, "/conversation", nil)
@@ -170,7 +171,7 @@ func TestDeleteConversation_Success(t *testing.T) {
 
 	cid := insertConversation(t, db, "delete me")
 
-	handler := Handler{service: convoservice.NewForTesting(db, &mockInferenceClient{})}
+	handler := Handler{service: convoservice.New(db, &mockInferenceClient{})}
 	mux := newTestMux(handler)
 
 	req := httptest.NewRequest(http.MethodDelete, "/conversation/"+strconv.Itoa(cid), nil)
@@ -188,7 +189,7 @@ func TestDeleteConversation_NonNumericID(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	handler := Handler{service: convoservice.NewForTesting(db, &mockInferenceClient{})}
+	handler := Handler{service: convoservice.New(db, &mockInferenceClient{})}
 	mux := newTestMux(handler)
 
 	req := httptest.NewRequest(http.MethodDelete, "/conversation/abc", nil)
@@ -202,7 +203,7 @@ func TestDeleteConversation_NotFound(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	handler := Handler{service: convoservice.NewForTesting(db, &mockInferenceClient{})}
+	handler := Handler{service: convoservice.New(db, &mockInferenceClient{})}
 	mux := newTestMux(handler)
 
 	req := httptest.NewRequest(http.MethodDelete, "/conversation/9999", nil)
@@ -219,7 +220,7 @@ func TestDeleteConversation_GenericError(t *testing.T) {
 	_, err := db.Exec("DROP TABLE conversations")
 	require.NoError(t, err)
 
-	handler := Handler{service: convoservice.NewForTesting(db, &mockInferenceClient{})}
+	handler := Handler{service: convoservice.New(db, &mockInferenceClient{})}
 	mux := newTestMux(handler)
 
 	req := httptest.NewRequest(http.MethodDelete, "/conversation/1", nil)
@@ -233,7 +234,7 @@ func TestDeleteConversation_NegativeID(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	handler := Handler{service: convoservice.NewForTesting(db, &mockInferenceClient{})}
+	handler := Handler{service: convoservice.New(db, &mockInferenceClient{})}
 	mux := newTestMux(handler)
 
 	req := httptest.NewRequest(http.MethodDelete, "/conversation/-1", nil)
@@ -263,7 +264,7 @@ func TestPostSummarize_HappyPath(t *testing.T) {
 		}},
 	}
 
-	handler := Handler{service: convoservice.NewForTesting(db, mock)}
+	handler := Handler{service: convoservice.New(db, mock)}
 	mux := newTestMux(handler)
 
 	body := `{"name":"llama3.2"}`
@@ -282,7 +283,7 @@ func TestPostSummarize_NonNumericID(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	handler := Handler{service: convoservice.NewForTesting(db, &mockInferenceClient{})}
+	handler := Handler{service: convoservice.New(db, &mockInferenceClient{})}
 	mux := newTestMux(handler)
 
 	body := `{"name":"llama3.2"}`
@@ -299,7 +300,7 @@ func TestPostSummarize_MalformedJSON(t *testing.T) {
 
 	cid := insertConversation(t, db, "malformed json test")
 
-	handler := Handler{service: convoservice.NewForTesting(db, &mockInferenceClient{})}
+	handler := Handler{service: convoservice.New(db, &mockInferenceClient{})}
 	mux := newTestMux(handler)
 
 	body := `{invalid json}`
@@ -314,7 +315,7 @@ func TestPostSummarize_ConversationNotFound(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	handler := Handler{service: convoservice.NewForTesting(db, &mockInferenceClient{})}
+	handler := Handler{service: convoservice.New(db, &mockInferenceClient{})}
 	mux := newTestMux(handler)
 
 	body := `{"name":"llama3.2"}`
@@ -329,7 +330,7 @@ func TestPostSummarize_NegativeID(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
 
-	handler := Handler{service: convoservice.NewForTesting(db, &mockInferenceClient{})}
+	handler := Handler{service: convoservice.New(db, &mockInferenceClient{})}
 	mux := newTestMux(handler)
 
 	body := `{"name":"llama3.2"}`
@@ -356,7 +357,7 @@ func TestPostSummarize_EmptyResponse(t *testing.T) {
 		}},
 	}
 
-	handler := Handler{service: convoservice.NewForTesting(db, mock)}
+	handler := Handler{service: convoservice.New(db, mock)}
 	mux := newTestMux(handler)
 
 	body := `{"name":"llama3.2"}`
@@ -374,7 +375,7 @@ func TestPostSummarize_ServiceError(t *testing.T) {
 	cid := insertConversation(t, db, "service error test")
 	insertMessage(t, db, "user", "hello", cid, 10)
 
-	handler := Handler{service: convoservice.NewForTesting(db, &errMockInferenceClient{})}
+	handler := Handler{service: convoservice.New(db, &errMockInferenceClient{})}
 	mux := newTestMux(handler)
 
 	body := `{"name":"llama3.2"}`
@@ -385,7 +386,6 @@ func TestPostSummarize_ServiceError(t *testing.T) {
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
-func decodeBody(r interface{ String() string }, target interface{}) error {
-	decoder := json.NewDecoder(strings.NewReader(r.String()))
-	return decoder.Decode(target)
+func decodeBody(r io.Reader, target interface{}) error {
+	return json.NewDecoder(r).Decode(target)
 }
