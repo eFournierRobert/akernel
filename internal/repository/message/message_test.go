@@ -298,10 +298,6 @@ func TestSelectAllMessagesAfterLastPrompt_Basic(t *testing.T) {
 	assert.Len(t, messages, 2)
 }
 
-// TestSelectAllMessagesAfterLastPrompt_DuplicatePromptUsesLastOccurrence is a
-// bug-exposure test. Expected behavior (per the function name and doc comment):
-// messages after the MOST RECENT occurrence of the prompt. Currently the query
-// uses MIN(id), so a repeated prompt returns messages after the FIRST occurrence.
 func TestSelectAllMessagesAfterLastPrompt_DuplicatePromptUsesLastOccurrence(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
