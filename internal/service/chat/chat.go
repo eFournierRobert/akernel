@@ -216,10 +216,6 @@ func (s *Service) getHistoryAndPostChat(ctx context.Context, conversationId int,
 
 	answer, err := s.inference.PostChat(ctx, prompt.Model, history, true)
 	if err != nil || ctx.Err() != nil {
-		if err := s.messageRepo.PopLastUserMessage(conversationId); err != nil {
-			return inference.MessageResponse{}, err
-		}
-
 		return inference.MessageResponse{}, err
 	}
 
