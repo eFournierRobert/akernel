@@ -270,11 +270,6 @@ func TestGeneratePromptAnswer_OllamaPostChatError_RollsBack(t *testing.T) {
 	assert.Equal(t, 0, count)
 }
 
-// TestGeneratePromptAnswer_PostChatError_PreservesPriorHistory is a bug-exposure
-// test. Expected behavior: when inference fails, only the new prompt is rolled
-// back. Currently the last user message is popped twice (once in
-// getHistoryAndPostChat and once in GeneratePromptAnswer), silently deleting a
-// prior user message.
 func TestGeneratePromptAnswer_PostChatError_PreservesPriorHistory(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
@@ -303,9 +298,6 @@ func TestGeneratePromptAnswer_PostChatError_PreservesPriorHistory(t *testing.T) 
 	assert.Equal(t, []string{"earlier question", "earlier answer"}, contents)
 }
 
-// TestGeneratePromptAnswer_ToolCallThenError_PreservesPriorHistory is a
-// bug-exposure test covering the same double-pop on the error path after tool
-// calls have been made.
 func TestGeneratePromptAnswer_ToolCallThenError_PreservesPriorHistory(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
@@ -343,11 +335,6 @@ func TestGeneratePromptAnswer_ToolCallThenError_PreservesPriorHistory(t *testing
 	assert.Equal(t, 1, count)
 }
 
-// TestGeneratePromptAnswer_ContextCancelled_RollsBack is a bug-exposure test.
-// Expected behavior: when the context is cancelled, GeneratePromptAnswer returns
-// an error and rolls back ONLY the new prompt, leaving prior history intact.
-// Currently the mock's valid response makes PostChat succeed, so the service hits
-// the `ctx.Err() != nil` branch, pops a SECOND user message, and returns (nil, nil).
 func TestGeneratePromptAnswer_ContextCancelled_RollsBack(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
