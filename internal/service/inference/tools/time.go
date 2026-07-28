@@ -7,7 +7,7 @@ import (
 )
 
 // GetCurrentTime returns the current local time as a human-readable string.
-func GetCurrentTime() string {
+func getCurrentTime() string {
 	log.Println("Getting the current time")
 
 	currentTime := time.Now()
@@ -15,7 +15,7 @@ func GetCurrentTime() string {
 }
 
 // GetCurrentTimeSchema returns the Ollama function-calling schema for the get_current_time tool.
-func GetCurrentTimeSchema() Tools {
+func getCurrentTimeSchema() Tools {
 	parameters := json.RawMessage(`{
     	"type": "object", 
     	"required": []

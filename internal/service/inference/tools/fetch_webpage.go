@@ -13,7 +13,7 @@ type fetchWebPageArg struct {
 	Url string `json:"url"`
 }
 
-func FetchWebPage(args []byte) string {
+func fetchWebPage(args []byte) string {
 	var arguments fetchWebPageArg
 	err := json.Unmarshal(args, &arguments)
 	if err != nil {
@@ -40,7 +40,7 @@ func FetchWebPage(args []byte) string {
 	return string(content)
 }
 
-func FetchWebPageSchema() Tools {
+func fetchWebPageSchema() Tools {
 	parameters := json.RawMessage(`{
 		"type": "object",
 		"properties": {
