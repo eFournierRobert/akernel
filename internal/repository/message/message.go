@@ -21,7 +21,7 @@ func New(db *sqlx.DB) Repository {
 }
 
 // InsertMessage saves a message to the database and creates a new conversation if necessary.
-// It returns the inserted message's ID for use in subsequent operations like SelectAllMessagesAfterLastPrompt.
+// It returns the inserted message's ID.
 func (d *Repository) InsertMessage(message repository.Message) (int64, error) {
 	res, err := d.db.NamedExec("INSERT INTO messages (role, content, thinking, conversation_id, datetime, token_count) VALUES (:role, :content, :thinking, :conversation_id, :datetime, :token_count)", message)
 	if err != nil {
