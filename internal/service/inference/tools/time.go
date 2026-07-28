@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"encoding/json"
 	"time"
 )
 
@@ -12,7 +13,11 @@ func GetCurrentTime() string {
 
 // GetCurrentTimeSchema returns the Ollama function-calling schema for the get_current_time tool.
 func GetCurrentTimeSchema() Tools {
-	parameters := []byte("{\"type\": \"object\", \"required\": []}")
+	parameters := json.RawMessage(`{
+    	"type": "object", 
+    	"required": []
+	}`)
+
 	return Tools{
 		Type: "function",
 		Function: ToolFunction{
