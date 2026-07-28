@@ -2,11 +2,14 @@ package tools
 
 import (
 	"encoding/json"
+	"log"
 	"time"
 )
 
 // GetCurrentTime returns the current local time as a human-readable string.
 func GetCurrentTime() string {
+	log.Println("Getting the current time")
+
 	currentTime := time.Now()
 	return currentTime.String()
 }
