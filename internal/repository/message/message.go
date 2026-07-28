@@ -21,6 +21,7 @@ func New(db *sqlx.DB) Repository {
 }
 
 // InsertMessage saves a message to the database and creates a new conversation if necessary.
+// It returns the inserted message's ID for use in subsequent operations like SelectAllMessagesAfterLastPrompt.
 func (d *Repository) InsertMessage(message repository.Message) (int64, error) {
 	res, err := d.db.NamedExec("INSERT INTO messages (role, content, thinking, conversation_id, datetime, token_count) VALUES (:role, :content, :thinking, :conversation_id, :datetime, :token_count)", message)
 	if err != nil {
@@ -114,9 +115,8 @@ func (d *Repository) SelectLastAssistantMessage(conversationId int) (repository.
 	return message, nil
 }
 
-// SelectAllMessagesAfterLastPrompt retrieves all messages from a conversation that were created
-// on or after the most recent user message matching the given prompt text. This includes tool
-// call responses and subsequent assistant messages following the prompt.
+// SelectAllMessagesAfterLastPrompt retrieves all messages from a conversation created on or after the message with the given prompt ID.
+// This includes tool call responses and subsequent assistant messages following the prompt.
 func (d *Repository) SelectAllMessagesAfterLastPrompt(conversationId int, promptId int64) ([]repository.Message, error) {
 	var messages []repository.Message
 	err := d.db.Select(&messages, "SELECT role, content, thinking, token_count, conversation_id FROM messages WHERE id > $1 AND conversation_id = $2 ORDER BY id", promptId, conversationId)

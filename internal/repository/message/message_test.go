@@ -298,6 +298,9 @@ func TestSelectAllMessagesAfterLastPrompt_Basic(t *testing.T) {
 	assert.Len(t, messages, 2)
 }
 
+// TestSelectAllMessagesAfterLastPrompt_DuplicatePromptUsesLastOccurrence verifies
+// that messages are selected after the MOST RECENT occurrence of a prompt when multiple messages have identical content.
+// Fixed by using message ID comparison instead of content matching which couldn't distinguish between duplicate prompts.
 func TestSelectAllMessagesAfterLastPrompt_DuplicatePromptUsesLastOccurrence(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()

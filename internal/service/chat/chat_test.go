@@ -270,6 +270,9 @@ func TestGeneratePromptAnswer_OllamaPostChatError_RollsBack(t *testing.T) {
 	assert.Equal(t, 0, count)
 }
 
+// TestGeneratePromptAnswer_PostChatError_PreservesPriorHistory verifies that when
+// inference fails, only the new prompt is rolled back, leaving prior history intact.
+// Fixed by using message IDs instead of content-based matching which caused double-pops.
 func TestGeneratePromptAnswer_PostChatError_PreservesPriorHistory(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
@@ -298,6 +301,8 @@ func TestGeneratePromptAnswer_PostChatError_PreservesPriorHistory(t *testing.T) 
 	assert.Equal(t, []string{"earlier question", "earlier answer"}, contents)
 }
 
+// TestGeneratePromptAnswer_ToolCallThenError_PreservesPriorHistory verifies the fix
+// for double-pop on error paths after tool calls have been made. Uses ID-based message tracking.
 func TestGeneratePromptAnswer_ToolCallThenError_PreservesPriorHistory(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
@@ -335,6 +340,8 @@ func TestGeneratePromptAnswer_ToolCallThenError_PreservesPriorHistory(t *testing
 	assert.Equal(t, 1, count)
 }
 
+// TestGeneratePromptAnswer_ContextCancelled_RollsBack verifies proper context cancellation handling.
+// When the context is cancelled, the service should roll back ONLY the new prompt, leaving prior history intact.
 func TestGeneratePromptAnswer_ContextCancelled_RollsBack(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
