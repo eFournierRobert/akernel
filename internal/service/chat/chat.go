@@ -151,7 +151,7 @@ func (s *Service) doesModelExist(modelName string) (bool, error) {
 	return false, nil
 }
 
-// insertPrompt saves a user's message to the database and returns the associated conversation ID.
+// insertPrompt saves a user's message to the database and returns the associated prompt ID.
 func (s *Service) insertPrompt(ctx context.Context, prompt *dto.Prompt) (int64, error) {
 	m := repository.Message{
 		Role:           "user",
