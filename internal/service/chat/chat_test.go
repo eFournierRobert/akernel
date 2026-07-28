@@ -270,11 +270,9 @@ func TestGeneratePromptAnswer_OllamaPostChatError_RollsBack(t *testing.T) {
 	assert.Equal(t, 0, count)
 }
 
-// TestGeneratePromptAnswer_PostChatError_PreservesPriorHistory is a bug-exposure
-// test. Expected behavior: when inference fails, only the new prompt is rolled
-// back. Currently the last user message is popped twice (once in
-// getHistoryAndPostChat and once in GeneratePromptAnswer), silently deleting a
-// prior user message.
+// TestGeneratePromptAnswer_PostChatError_PreservesPriorHistory verifies that when
+// inference fails, only the new prompt is rolled back, leaving prior history intact.
+// Fixed by using message IDs instead of content-based matching which caused double-pops.
 func TestGeneratePromptAnswer_PostChatError_PreservesPriorHistory(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
@@ -303,9 +301,8 @@ func TestGeneratePromptAnswer_PostChatError_PreservesPriorHistory(t *testing.T) 
 	assert.Equal(t, []string{"earlier question", "earlier answer"}, contents)
 }
 
-// TestGeneratePromptAnswer_ToolCallThenError_PreservesPriorHistory is a
-// bug-exposure test covering the same double-pop on the error path after tool
-// calls have been made.
+// TestGeneratePromptAnswer_ToolCallThenError_PreservesPriorHistory verifies the fix
+// for double-pop on error paths after tool calls have been made. Uses ID-based message tracking.
 func TestGeneratePromptAnswer_ToolCallThenError_PreservesPriorHistory(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
@@ -343,11 +340,8 @@ func TestGeneratePromptAnswer_ToolCallThenError_PreservesPriorHistory(t *testing
 	assert.Equal(t, 1, count)
 }
 
-// TestGeneratePromptAnswer_ContextCancelled_RollsBack is a bug-exposure test.
-// Expected behavior: when the context is cancelled, GeneratePromptAnswer returns
-// an error and rolls back ONLY the new prompt, leaving prior history intact.
-// Currently the mock's valid response makes PostChat succeed, so the service hits
-// the `ctx.Err() != nil` branch, pops a SECOND user message, and returns (nil, nil).
+// TestGeneratePromptAnswer_ContextCancelled_RollsBack verifies proper context cancellation handling.
+// When the context is cancelled, the service should roll back ONLY the new prompt, leaving prior history intact.
 func TestGeneratePromptAnswer_ContextCancelled_RollsBack(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()

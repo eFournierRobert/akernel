@@ -27,12 +27,17 @@ go run ./cmd/main.go -dev         # dev mode (DB at ./database/database.db)
 Three-layer structure under `internal/`:
 
 ```
-cmd/main.go          → single entrypoint, flag parsing, mux setup
-internal/handlers/   → HTTP handlers (chat, conversation, model)
-internal/service/    → business logic + Ollama client + tool definitions
-internal/repository/ → sqlx DB access
-migrations/          → goose SQL migrations (run automatically on startup)
+cmd/main.go                  → single entrypoint, flag parsing, mux setup
+internal/handlers/           → HTTP handlers (chat, conversation, model)
+internal/service/chat/        → business logic for chat orchestration + tool-call dispatch
+internal/service/conversation/→ conversation summary helpers
+internal/service/inference/    → LLM request/response abstraction over Ollama; hosts inference/tools
+  └── tools/                  → function-calling tool schemas and handlers (e.g. get_current_time, write_to_file)
+internal/repository/         → sqlx DB access
+migrations/                  → goose SQL migrations (run automatically on startup)
 ```
+
+The `chat` service now selects messages by row ID rather than matching prompt text — callers pass the int64 message ID returned from `InsertMessage`. The inference layer is what chat talks to instead of Ollama directly.
 
 Tests use table-driven and mock-based patterns from the standard `testing` package with `github.com/stretchr/testify`. A sample test invocation:
 
@@ -44,13 +49,13 @@ No CI, linter, or formatter config configured. Standard gofmt applies.
 
 ## External dependency: Ollama
 
-The service calls **Ollama** at `http://localhost:11434/api`. It must be running before the app starts, otherwise `main()` will `log.Fatal`.
+The service calls **Ollama** at `http://localhost:11434/api`. It must be running before the app starts, otherwise `main()` will `log.Fatal`. The call is routed through the inference layer (`internal/service/inference/`) rather than directly from business logic.
 
 System prompt is loaded from `$XDG_CONFIG_HOME/akernel/system.md` at startup. If the file doesn't exist (and `-dev` isn't set to skip), the app will fail to start.
 
 ## Tool calls
 
-Ollama function-calling tools live in `internal/service/ollama/tools/`. Available:
+Ollama function-calling tools live in `internal/service/inference/tools/`. Available:
 - `get_current_time` — returns current time string
 - `write_to_file` — writes content to `$XDG_DATA_HOME/akernel/<filename>`
 
