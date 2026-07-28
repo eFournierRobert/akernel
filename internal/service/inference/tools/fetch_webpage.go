@@ -3,9 +3,10 @@ package tools
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
+
+	htmltomarkdown "github.com/JohannesKaufmann/html-to-markdown/v2"
 )
 
 type fetchWebPageArg struct {
@@ -31,12 +32,12 @@ func FetchWebPage(args []byte) string {
 		return fmt.Sprintf("error. got: %d", resp.StatusCode)
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	content, err := htmltomarkdown.ConvertReader(resp.Body)
 	if err != nil {
 		return err.Error()
 	}
 
-	return string(body)
+	return string(content)
 }
 
 func FetchWebPageSchema() Tools {
