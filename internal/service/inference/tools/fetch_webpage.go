@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strings"
 
 	htmltomarkdown "github.com/JohannesKaufmann/html-to-markdown/v2"
 )
@@ -31,11 +30,6 @@ func FetchWebPage(args []byte) string {
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Sprintf("error. got: %d", resp.StatusCode)
-	}
-
-	currentContentType := resp.Header.Get("Content-Type")
-	if !strings.Contains(currentContentType, "text/") || currentContentType != "application/xhtml" {
-		return fmt.Sprintf("error. Invalid content type fetched. Got: %s", currentContentType)
 	}
 
 	content, err := htmltomarkdown.ConvertReader(resp.Body)
