@@ -8,6 +8,7 @@ import (
 	"akernel/internal/middleware"
 	"akernel/internal/repository"
 	"akernel/internal/service/inference"
+	"akernel/internal/service/inference/tools"
 	"flag"
 	"log"
 	"net/http"
@@ -28,6 +29,8 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
+
+	tools.Config = config
 
 	inference := inference.New(config)
 

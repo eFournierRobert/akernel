@@ -1,7 +1,15 @@
 package tools
 
+import "akernel/internal/config"
+
+var Config config.Config
+
 // GetAllToolSchemas returns a slice of all registered tool schemas for Ollama's function calling.
 func GetAllToolSchemas() []Tools {
+	if len(Config.BraveApiKey) > 0 {
+		return []Tools{getCurrentTimeSchema(), fetchWebPageSchema(), webSearchSchema()}
+	}
+
 	return []Tools{getCurrentTimeSchema(), fetchWebPageSchema()}
 }
 
@@ -12,6 +20,8 @@ func ToolCallRouter(toolCall ToolCall) string {
 		return getCurrentTime()
 	case "fetch_webpage":
 		return fetchWebPage(toolCall.Function.Arguments)
+	case "web_search":
+		return webSearch(toolCall.Function.Arguments)
 	default:
 		return ""
 	}
