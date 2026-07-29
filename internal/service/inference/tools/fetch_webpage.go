@@ -9,10 +9,12 @@ import (
 	htmltomarkdown "github.com/JohannesKaufmann/html-to-markdown/v2"
 )
 
+// fetchWebPageArg holds the decoded arguments for a fetch_webpage tool call with a URL.
 type fetchWebPageArg struct {
 	Url string `json:"url"`
 }
 
+// fetchWebPage fetches content from the given URL and converts HTML to markdown. Returns error messages on failure or markdown content on success.
 func fetchWebPage(args []byte) string {
 	var arguments fetchWebPageArg
 	err := json.Unmarshal(args, &arguments)
@@ -40,6 +42,7 @@ func fetchWebPage(args []byte) string {
 	return string(content)
 }
 
+// fetchWebPageSchema returns the Ollama function-calling schema for the fetch_webpage tool.
 func fetchWebPageSchema() Tools {
 	parameters := json.RawMessage(`{
 		"type": "object",
