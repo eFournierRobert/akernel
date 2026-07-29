@@ -9,20 +9,44 @@ import (
 )
 
 func TestGetAllToolSchemas_Valid(t *testing.T) {
-	schemas := GetAllToolSchemas()
-	require.NotEmpty(t, schemas)
+	testCases := []struct {
+		name          string
+		braveApiKey   string
+		expectedCount int
+	}{
+		{
+			name:          "without_brave_api_key",
+			braveApiKey:   "",
+			expectedCount: 2,
+		},
+		{
+			name:          "with_brave_api_key",
+			braveApiKey:   "test-api-key",
+			expectedCount: 3,
+		},
+	}
 
-	for _, schema := range schemas {
-		t.Run(schema.Function.Name, func(t *testing.T) {
-			data, err := json.Marshal(schema)
-			require.NoError(t, err)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			oldConfig := Config
+			defer func() { Config = oldConfig }()
 
-			var decoded Tools
-			require.NoError(t, json.Unmarshal(data, &decoded))
+			Config.BraveApiKey = tc.braveApiKey
 
-			assert.Equal(t, schema.Type, decoded.Type)
-			assert.Equal(t, schema.Function.Name, decoded.Function.Name)
-			assert.Equal(t, schema.Function.Description, decoded.Function.Description)
+			schemas := GetAllToolSchemas()
+			require.Len(t, schemas, tc.expectedCount)
+
+			for _, schema := range schemas {
+				data, err := json.Marshal(schema)
+				require.NoError(t, err)
+
+				var decoded Tools
+				require.NoError(t, json.Unmarshal(data, &decoded))
+
+				assert.Equal(t, schema.Type, decoded.Type)
+				assert.Equal(t, schema.Function.Name, decoded.Function.Name)
+				assert.Equal(t, schema.Function.Description, decoded.Function.Description)
+			}
 		})
 	}
 }
