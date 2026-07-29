@@ -1,3 +1,4 @@
+// Package tools defines the tool schemas, types, and router used for LLM function calling.
 package tools
 
 import "akernel/internal/config"

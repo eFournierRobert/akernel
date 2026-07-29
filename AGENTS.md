@@ -55,11 +55,11 @@ System prompt is loaded from `$XDG_CONFIG_HOME/akernel/system.md` at startup. If
 
 ## Tool calls
 
-Ollama function-calling tools live in `internal/service/inference/tools/`. Available:
-- `get_current_time` — returns current time string
-- `write_to_file` — writes content to `$XDG_DATA_HOME/akernel/<filename>`
+Ollama function-calling tools live in `internal/service/inference/tools/`.
 
 Adding a new tool requires: schema function + handler function + registration in `GetAllToolSchemas()` and `ToolCallRouter()`.
+
+All tools should include go-doc comments for handler functions, argument types (if complex), and schema functions following the pattern used in existing tools.
 
 ## Database
 

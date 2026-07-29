@@ -12,6 +12,7 @@ import (
 
 const braveBaseUrl string = "https://api.search.brave.com/res/v1/web/search"
 
+// braveResponse represents the JSON structure returned by the Brave Search API.
 type braveResponse struct {
 	Discussions struct {
 		Type    string `json:"type"`
@@ -50,10 +51,12 @@ type braveResponse struct {
 	} `json:"web"`
 }
 
+// webSearchArg holds the decoded arguments for a web_search tool call with a query string.
 type webSearchArg struct {
 	Query string `json:"query"`
 }
 
+// webSearch performs a search using the Brave Search API and returns formatted markdown results.
 func webSearch(args []byte) string {
 	var arguments webSearchArg
 	err := json.Unmarshal(args, &arguments)
@@ -98,6 +101,7 @@ func webSearch(args []byte) string {
 	return formatResponseToMarkdown(braveResponse)
 }
 
+// webSearchSchema returns the Ollama function-calling schema for the web_search tool.
 func webSearchSchema() Tools {
 	parameters := json.RawMessage(`{
 		"type": "object",
@@ -122,6 +126,7 @@ func webSearchSchema() Tools {
 	}
 }
 
+// formatResponseToMarkdown converts a braveResponse into markdown organized by result type.
 func formatResponseToMarkdown(braveResponse braveResponse) string {
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("# Web search results\n"))
