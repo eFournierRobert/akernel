@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -63,7 +64,7 @@ func webSearch(args []byte) string {
 
 	log.Println("Searching the web: " + arguments.Query)
 
-	formattedQuery := strings.ReplaceAll(arguments.Query, " ", "+")
+	formattedQuery := url.QueryEscape(arguments.Query)
 
 	fullQuery := braveBaseUrl + "?q=" + formattedQuery + "&result_filter=discussions,faq,news,web&count=5"
 	req, err := http.NewRequest(http.MethodGet, fullQuery, nil)
