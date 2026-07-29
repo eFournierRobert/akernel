@@ -4,7 +4,6 @@ package config
 
 import (
 	"io"
-	"log"
 	"os"
 
 	"github.com/BurntSushi/toml"
@@ -39,8 +38,6 @@ func ReadConfig() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-
-	log.Println(tomlConfig.BraveApiKey)
 
 	return Config{
 		SystemPrompt: sysPrompt,
