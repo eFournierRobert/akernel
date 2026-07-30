@@ -65,7 +65,7 @@ func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) 
 		return nil, err
 	}
 
-	if len(answer.Response.ToolCalls) > 0 {
+	for len(answer.Response.ToolCalls) > 0 {
 		if err = s.makeToolCalls(answer.Response.Thinking, prompt.ConversationId, answer.Response.ToolCalls); err != nil {
 			return nil, err
 		}
