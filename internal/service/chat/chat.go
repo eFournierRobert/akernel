@@ -36,7 +36,10 @@ func NewChatService(db *sqlx.DB, inference inference.InferenceClient) *Service {
 	return &s
 }
 
-// GeneratePromptAnswer takes a user prompt and generates an AI answer. Also creates a conversation if necessary.
+// GeneratePromptAnswer takes a user prompt and generates an AI answer. It supports both Ollama
+// and OpenRouter providers, handling the tool-calling workflow when models request function calls.
+// If no conversation exists (ConversationId == -1), it creates one with a generated title.
+// The method iterates through tool calls until the model produces a final response without further requests.
 func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) ([]dto.Answer, error) {
 	if modelIsValid, err := s.doesModelExist(prompt.Model); err != nil {
 		return nil, err
@@ -74,6 +77,9 @@ func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) 
 		if err != nil || ctx.Err() != nil {
 			if err := s.messageRepo.PopLastUserMessage(prompt.ConversationId); err != nil {
 				return nil, err
+			}
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
 			}
 
 			return nil, err

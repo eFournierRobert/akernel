@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 )
 
 // Service holds the system prompt, configured models, and provider-specific clients.
@@ -163,6 +164,10 @@ func (s Service) convertFullHistoryToOllamaFormat(history []HistoryMessage) []ol
 	return h
 }
 
+// convertFullHistoryToOpenrouterFormat transforms internal message history into the format expected by OpenRouter's API.
+// It handles extracting tool calls from assistant responses, converting JSON arguments to properly escaped strings,
+// and managing optional content fields (setting Content to nil pointer when empty). The function also sets Type="function"
+// on all ToolCalls for proper OpenRouter formatting.
 func (s Service) convertFullHistoryToOpenrouterFormat(history []HistoryMessage) []openrouter.HistoryMessage {
 	var h []openrouter.HistoryMessage
 	for _, m := range history {
@@ -174,6 +179,7 @@ func (s Service) convertFullHistoryToOpenrouterFormat(history []HistoryMessage) 
 				for i, c := range calls {
 					stringifyJson, err := json.Marshal(string(c.Function.Arguments))
 					if err != nil {
+						log.Printf("Failed to convert tool call for openrouter format: %s\n", err.Error())
 						continue
 					}
 					calls[i].Function.Arguments = stringifyJson
