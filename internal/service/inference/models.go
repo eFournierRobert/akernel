@@ -26,10 +26,11 @@ type openrouterClient interface {
 
 // HistoryMessage represents a single message within a conversation history, including its role and content.
 type HistoryMessage struct {
-	Role      string
-	Content   string
-	Thinking  string
-	ToolCalls []tools.ToolCall
+	Role       string
+	Content    string
+	Thinking   string
+	ToolCallId string
+	ToolCalls  []tools.ToolCall
 }
 
 // Message defines the request payload for sending a chat prompt to an LLM provider.

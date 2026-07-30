@@ -11,6 +11,7 @@ type Message struct {
 	Role           string    `db:"role"`
 	Content        string    `db:"content"`
 	Thinking       string    `db:"thinking"`
+	ToolCallId     string    `db:"tool_call_id"`
 	DateTime       time.Time `db:"datetime"`
 	ConversationId int       `db:"conversation_id"`
 	TokenCount     int       `db:"token_count"`

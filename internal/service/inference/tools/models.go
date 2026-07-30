@@ -18,6 +18,8 @@ type ToolFunction struct {
 // ToolCall represents a single tool invocation request returned by the Ollama model.
 type ToolCall struct {
 	Function Function `json:"function"`
+	Type     string   `json:"type"`
+	Id       string   `json:"id"`
 }
 
 // Function holds the name and deserialized arguments of a tool call issued by the model.

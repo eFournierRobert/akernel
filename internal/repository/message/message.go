@@ -23,7 +23,7 @@ func New(db *sqlx.DB) Repository {
 // InsertMessage saves a message to the database and creates a new conversation if necessary.
 // It returns the inserted message's ID.
 func (d *Repository) InsertMessage(message repository.Message) (int64, error) {
-	res, err := d.db.NamedExec("INSERT INTO messages (role, content, thinking, conversation_id, datetime, token_count) VALUES (:role, :content, :thinking, :conversation_id, :datetime, :token_count)", message)
+	res, err := d.db.NamedExec("INSERT INTO messages (role, content, thinking, conversation_id, datetime, token_count, tool_call_id) VALUES (:role, :content, :thinking, :conversation_id, :datetime, :token_count, :tool_call_id)", message)
 	if err != nil {
 		return 0, fmt.Errorf("insert message: %w", err)
 	}
@@ -52,14 +52,14 @@ func (d *Repository) SelectMessagesOfConvo(conversationId int) ([]repository.Mes
 			return nil, fmt.Errorf("select messages of conversation: %w", err)
 		}
 
-		err = d.db.Select(&messages, "SELECT role, content FROM messages WHERE conversation_id = $1 AND id > $2 ORDER BY id", conversationId, summary.ID)
+		err = d.db.Select(&messages, "SELECT role, content, tool_call_id FROM messages WHERE conversation_id = $1 AND id > $2 ORDER BY id", conversationId, summary.ID)
 		if err != nil {
 			return nil, fmt.Errorf("select messages of conversation: %w", err)
 		}
 
 		messages = append([]repository.Message{summary}, messages...)
 	} else {
-		err = d.db.Select(&messages, "SELECT role, content FROM messages WHERE conversation_id = $1 ORDER BY id", conversationId)
+		err = d.db.Select(&messages, "SELECT role, content, tool_call_id FROM messages WHERE conversation_id = $1 ORDER BY id", conversationId)
 		if err != nil {
 			return nil, fmt.Errorf("select messages of conversation: %w", err)
 		}

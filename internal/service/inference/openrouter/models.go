@@ -3,9 +3,10 @@ package openrouter
 import "akernel/internal/service/inference/tools"
 
 type HistoryMessage struct {
-	Role      string           `json:"role"`
-	Content   string           `json:"content"`
-	ToolCalls []tools.ToolCall `json:"tool_calls"`
+	Role       string           `json:"role"`
+	Content    *string          `json:"content"`
+	ToolCallId string           `json:"tool_call_id"`
+	ToolCalls  []tools.ToolCall `json:"tool_calls"`
 }
 
 type Message struct {

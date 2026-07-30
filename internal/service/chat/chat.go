@@ -180,11 +180,12 @@ func (s *Service) insertPrompt(ctx context.Context, prompt *dto.Prompt) (int64, 
 }
 
 // insertToolAnswer saves a single tool execution result as a message in the conversation.
-func (s *Service) insertToolAnswer(conversationId int, toolAnswer string) error {
+func (s *Service) insertToolAnswer(conversationId int, toolAnswer, callId string) error {
 	m := repository.Message{
 		Role:           "tool",
 		Content:        toolAnswer,
 		ConversationId: conversationId,
+		ToolCallId:     callId,
 		DateTime:       time.Now(),
 	}
 
@@ -202,8 +203,9 @@ func (s *Service) fetchConversationHistory(conversationId int) ([]inference.Hist
 	var history []inference.HistoryMessage
 	for _, m := range messages {
 		history = append(history, inference.HistoryMessage{
-			Role:    m.Role,
-			Content: m.Content,
+			Role:       m.Role,
+			Content:    m.Content,
+			ToolCallId: m.ToolCallId,
 		})
 	}
 
@@ -238,7 +240,7 @@ func (s *Service) makeToolCalls(thinking string, conversationId int, toolCalls [
 
 	for _, t := range toolCalls {
 		res := tools.ToolCallRouter(t)
-		if err = s.insertToolAnswer(conversationId, res); err != nil {
+		if err = s.insertToolAnswer(conversationId, res, t.Id); err != nil {
 			return fmt.Errorf("generate prompt answer: %w", err)
 		}
 	}

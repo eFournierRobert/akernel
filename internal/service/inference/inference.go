@@ -8,7 +8,9 @@ import (
 	"akernel/internal/service"
 	"akernel/internal/service/inference/ollama"
 	"akernel/internal/service/inference/openrouter"
+	"akernel/internal/service/inference/tools"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -124,9 +126,26 @@ func (s Service) convertOllamaHistoryToInferenceFormat(h ollama.HistoryMessage) 
 }
 
 func (s Service) convertOpenrouterHistoryToInferenceFormat(h openrouter.HistoryMessage) HistoryMessage {
+	if len(h.ToolCalls) > 0 {
+		for i, t := range h.ToolCalls {
+			var args string
+			if err := json.Unmarshal(t.Function.Arguments, &args); err != nil {
+				h.ToolCalls = nil
+				break
+			}
+
+			h.ToolCalls[i].Function.Arguments = json.RawMessage(args)
+		}
+	}
+
+	if h.Content == nil {
+		emptyString := ""
+		h.Content = &emptyString
+	}
+
 	return HistoryMessage{
 		Role:      h.Role,
-		Content:   h.Content,
+		Content:   *h.Content,
 		ToolCalls: h.ToolCalls,
 	}
 }
@@ -147,10 +166,37 @@ func (s Service) convertFullHistoryToOllamaFormat(history []HistoryMessage) []ol
 func (s Service) convertFullHistoryToOpenrouterFormat(history []HistoryMessage) []openrouter.HistoryMessage {
 	var h []openrouter.HistoryMessage
 	for _, m := range history {
+		if m.Role == "assistant" {
+			var calls []tools.ToolCall
+			if err := json.Unmarshal([]byte(m.Content), &calls); err == nil {
+				m.Content = ""
+
+				for i, c := range calls {
+					stringifyJson, err := json.Marshal(string(c.Function.Arguments))
+					if err != nil {
+						continue
+					}
+					calls[i].Function.Arguments = stringifyJson
+					calls[i].Type = "function"
+				}
+				m.ToolCalls = append(m.ToolCalls, calls...)
+			}
+		}
+
+		if m.Content == "" {
+			h = append(h, openrouter.HistoryMessage{
+				Role:      m.Role,
+				Content:   nil,
+				ToolCalls: m.ToolCalls,
+			})
+			continue
+		}
+
 		h = append(h, openrouter.HistoryMessage{
-			Role:      m.Role,
-			Content:   m.Content,
-			ToolCalls: m.ToolCalls,
+			Role:       m.Role,
+			Content:    &m.Content,
+			ToolCallId: m.ToolCallId,
+			ToolCalls:  m.ToolCalls,
 		})
 	}
 
