@@ -3,6 +3,7 @@ package inference
 import (
 	"akernel/internal/config"
 	"akernel/internal/service/inference/ollama"
+	"akernel/internal/service/inference/openrouter"
 	"akernel/internal/service/inference/tools"
 	"context"
 )
@@ -17,6 +18,10 @@ type InferenceClient interface {
 // ollamaClient abstracts the Ollama provider so it can be mocked in tests.
 type ollamaClient interface {
 	PostChat(ctx context.Context, modelName string, history []ollama.HistoryMessage, thinking bool) (ollama.MessageResponse, error)
+}
+
+type openrouterClient interface {
+	PostChat(ctx context.Context, modelName string, history []openrouter.HistoryMessage) (openrouter.MessageResponse, error)
 }
 
 // HistoryMessage represents a single message within a conversation history, including its role and content.

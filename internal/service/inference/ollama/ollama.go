@@ -21,9 +21,7 @@ type Service struct {
 
 // New creates a new Ollama service instance.
 func New() Service {
-	ollamaService := Service{}
-
-	return ollamaService
+	return Service{}
 }
 
 // PostChat sends a message along with conversation history to the specified Ollama model and returns the generated response.

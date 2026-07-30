@@ -7,6 +7,7 @@ import (
 	"akernel/internal/config"
 	"akernel/internal/service"
 	"akernel/internal/service/inference/ollama"
+	"akernel/internal/service/inference/openrouter"
 	"context"
 	"errors"
 	"fmt"
@@ -15,9 +16,10 @@ import (
 // Service holds the system prompt, configured models, and provider-specific clients.
 // It acts as the facade between the service layer and lower-level inference providers.
 type Service struct {
-	systemPrompt  HistoryMessage
-	models        []config.Model
-	ollamaService ollamaClient
+	systemPrompt      HistoryMessage
+	models            []config.Model
+	ollamaService     ollamaClient
+	openrouterService openrouterClient
 }
 
 // New creates a new Service from the given configuration, initializing the system prompt and model list.
@@ -28,9 +30,10 @@ func New(config config.Config) Service {
 	}
 
 	return Service{
-		systemPrompt:  systemPrompt,
-		models:        config.Models,
-		ollamaService: ollama.New(),
+		systemPrompt:      systemPrompt,
+		models:            config.Models,
+		ollamaService:     ollama.New(),
+		openrouterService: openrouter.New(config),
 	}
 }
 
@@ -76,6 +79,18 @@ func (s Service) PostChat(ctx context.Context, model string, history []HistoryMe
 			TokenCount:       response.TokenCount,
 			PromptTokenCount: response.PromptTokenCount,
 		}, nil
+	case "openrouter":
+		response, err := s.openrouterService.PostChat(ctx, fullModel.Id, s.convertFullHistoryToOpenrouterFormat(fullHistory))
+		if err != nil {
+			return MessageResponse{}, err
+		}
+
+		return MessageResponse{
+			Model:            model,
+			Response:         s.convertOpenrouterHistoryToInferenceFormat(response.Choices[0].Message),
+			TokenCount:       response.Usage.TotalTokens,
+			PromptTokenCount: response.Usage.PromptTokens,
+		}, nil
 	}
 
 	return MessageResponse{}, errors.New("invalid provider")
@@ -99,7 +114,7 @@ func (s Service) GenerateConversationTitle(ctx context.Context, message, model s
 	return answer.Response.Content, nil
 }
 
-func (s *Service) convertOllamaHistoryToInferenceFormat(h ollama.HistoryMessage) HistoryMessage {
+func (s Service) convertOllamaHistoryToInferenceFormat(h ollama.HistoryMessage) HistoryMessage {
 	return HistoryMessage{
 		Role:      h.Role,
 		Content:   h.Content,
@@ -108,10 +123,31 @@ func (s *Service) convertOllamaHistoryToInferenceFormat(h ollama.HistoryMessage)
 	}
 }
 
-func (s *Service) convertFullHistoryToOllamaFormat(history []HistoryMessage) []ollama.HistoryMessage {
+func (s Service) convertOpenrouterHistoryToInferenceFormat(h openrouter.HistoryMessage) HistoryMessage {
+	return HistoryMessage{
+		Role:      h.Role,
+		Content:   h.Content,
+		ToolCalls: h.ToolCalls,
+	}
+}
+
+func (s Service) convertFullHistoryToOllamaFormat(history []HistoryMessage) []ollama.HistoryMessage {
 	var h []ollama.HistoryMessage
 	for _, m := range history {
 		h = append(h, ollama.HistoryMessage{
+			Role:      m.Role,
+			Content:   m.Content,
+			ToolCalls: m.ToolCalls,
+		})
+	}
+
+	return h
+}
+
+func (s Service) convertFullHistoryToOpenrouterFormat(history []HistoryMessage) []openrouter.HistoryMessage {
+	var h []openrouter.HistoryMessage
+	for _, m := range history {
+		h = append(h, openrouter.HistoryMessage{
 			Role:      m.Role,
 			Content:   m.Content,
 			ToolCalls: m.ToolCalls,
