@@ -100,7 +100,7 @@ func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) 
 	if err = s.messageRepo.PopLastUserMessage(prompt.ConversationId); err != nil {
 		return nil, err
 	}
-	return nil, errors.New("received empty answer from ollama")
+	return nil, errors.New("received empty answer from provider")
 }
 
 // InsertAssistantAnswer saves the AI's response to the database for a specific conversation.
