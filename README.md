@@ -1,7 +1,7 @@
 # Assistant Kernel (akernel)
 
 A minimal, resource-efficient HTTP daemon that adds state management and tools to Ollama and OpenRouter. 
-Fully written in Go.
+Fully written in Go. It also provides an easy-to-use abstraction for using AI models.
 
 ## Key Features
 - Persistent chat history with SQLite
