@@ -9,4 +9,4 @@ In Assistant Kernel, all models share the same system prompt. It needs to be def
 
 Note that it will be sent to the model when making a request so it will consume tokens from the context.
 
-**`$XDG_CONFIG_HOME` is usually just `$HOME`.*
+**`$XDG_CONFIG_HOME` is usually just `$HOME/.config/`.*

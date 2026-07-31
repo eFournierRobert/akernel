@@ -1,7 +1,7 @@
 # Configuration
 
 Assistant Kernel needs a small amount of TOML configuration to work fully. 
-That configuration if defined in `$XDG_CONFIG_HOME/.config/akernel/config.toml` and won't be automatically generated at first launch.
+That configuration if defined in `$XDG_CONFIG_HOME/akernel/config.toml` and won't be automatically generated at first launch.
 
 That configuration has two parts: models and keys. We'll go through each one.
 
