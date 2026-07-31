@@ -93,7 +93,6 @@ func TestGetModel_NotFound(t *testing.T) {
 	require.Error(t, err)
 }
 
-// --- PostChat tests ---
 
 func TestPostChat_Success(t *testing.T) {
 	mock := &mockOllamaClient{
@@ -225,7 +224,6 @@ func TestPostChat_ToolCallsPassthrough(t *testing.T) {
 	assert.Equal(t, "get_current_time", resp.Response.ToolCalls[0].Function.Name)
 }
 
-// --- GenerateConversationTitle tests ---
 
 func TestGenerateConversationTitle_Success(t *testing.T) {
 	mock := &mockOllamaClient{
@@ -325,8 +323,6 @@ func TestPostChat_OpenRouter_Error(t *testing.T) {
 	assert.Contains(t, err.Error(), "openrouter unavailable")
 }
 
-// TestPostChat_OpenRouter_NilContentHandled verifies that OpenRouter responses with nil Content
-// are gracefully converted to empty string instead of panicking on nil pointer dereference.
 func TestPostChat_OpenRouter_NilContentHandled(t *testing.T) {
 	mock := &mockOpenRouterClient{
 		response: openrouter.MessageResponse{
@@ -350,8 +346,6 @@ func TestPostChat_OpenRouter_NilContentHandled(t *testing.T) {
 	assert.Equal(t, "", resp.Response.Content)
 }
 
-// TestConvertOpenrouterHistoryToInferenceFormat_ToolCallParseError verifies that when a tool call's
-// Arguments field contains invalid JSON for string unmarshaling, ToolCalls is set to nil.
 func TestConvertOpenrouterHistoryToInferenceFormat_ToolCallParseError(t *testing.T) {
 	svc := Service{}
 
@@ -368,8 +362,6 @@ func TestConvertOpenrouterHistoryToInferenceFormat_ToolCallParseError(t *testing
 	assert.Nil(t, result.ToolCalls)
 }
 
-// TestConvertFullHistoryToOpenrouterFormat_Basic verifies history messages transform correctly:
-// user content becomes pointer, assistant JSON tool-call content is parsed, empty content yields nil.
 func TestConvertFullHistoryToOpenrouterFormat_Basic(t *testing.T) {
 	svc := Service{}
 
@@ -389,8 +381,6 @@ func TestConvertFullHistoryToOpenrouterFormat_Basic(t *testing.T) {
 	assert.Nil(t, result[2].Content)
 }
 
-// TestConvertFullHistoryToOpenrouterFormat_ToolCallsInAssistant verifies that assistant messages
-// whose Content is valid JSON array of ToolCall objects get parsed and moved to ToolCalls field.
 func TestConvertFullHistoryToOpenrouterFormat_ToolCallsInAssistant(t *testing.T) {
 	svc := Service{}
 
@@ -407,7 +397,6 @@ func TestConvertFullHistoryToOpenrouterFormat_ToolCallsInAssistant(t *testing.T)
 	assert.Nil(t, result[0].Content)
 }
 
-// TestConvertFullHistoryToOpenrouterFormat_ToolCallIdIncluded verifies ToolCallId is set on non-empty messages.
 func TestConvertFullHistoryToOpenrouterFormat_ToolCallIdIncluded(t *testing.T) {
 	svc := Service{}
 
@@ -420,8 +409,6 @@ func TestConvertFullHistoryToOpenrouterFormat_ToolCallIdIncluded(t *testing.T) {
 	assert.Equal(t, "tc-123", result[0].ToolCallId)
 }
 
-// TestPostChat_MixedProviders_RoutesCorrectly verifies that when both Ollama and OpenRouter
-// models are configured simultaneously, the service dispatches to the correct provider.
 func TestPostChat_MixedProviders_RoutesCorrectly(t *testing.T) {
 	ollamaMock := &mockOllamaClient{
 		response: ollama.MessageResponse{
@@ -460,9 +447,6 @@ func TestPostChat_MixedProviders_RoutesCorrectly(t *testing.T) {
 	assert.Equal(t, "or reply", orResp.Response.Content)
 }
 
-// TestConvertOpenrouterHistoryToInferenceFormat_ValidToolCallArgs documents the current
-// behavior of the OpenRouter→inference converter when a tool call's Arguments field is a
-// JSON-encoded string: it unmarshals into a string then re-encodes as json.RawMessage.
 func TestConvertOpenrouterHistoryToInferenceFormat_ValidToolCallArgs(t *testing.T) {
 	svc := Service{}
 
@@ -489,8 +473,6 @@ func TestConvertOpenrouterHistoryToInferenceFormat_ValidToolCallArgs(t *testing.
 	assert.Equal(t, json.RawMessage(`{"query":"hello"}`), result.ToolCalls[0].Function.Arguments)
 }
 
-// TestConvertOpenrouterHistoryToInferenceFormat_NilContentPreserved verifies that a nil
-// Content pointer is converted to an empty string rather than panicking.
 func TestConvertOpenrouterHistoryToInferenceFormat_NilContentPreserved(t *testing.T) {
 	svc := Service{}
 
@@ -502,8 +484,6 @@ func TestConvertOpenrouterHistoryToInferenceFormat_NilContentPreserved(t *testin
 	assert.Nil(t, result.ToolCalls)
 }
 
-// TestConvertFullHistoryToOpenrouterFormat_PlainAssistantContent verifies that an assistant
-// message whose Content is not a JSON tool-call array is preserved as a content pointer.
 func TestConvertFullHistoryToOpenrouterFormat_PlainAssistantContent(t *testing.T) {
 	svc := Service{}
 
@@ -519,9 +499,6 @@ func TestConvertFullHistoryToOpenrouterFormat_PlainAssistantContent(t *testing.T
 	assert.Nil(t, result[0].ToolCalls)
 }
 
-// TestConvertFullHistoryToOpenrouterFormat_ValidJSONNotToolCallArray verifies that an
-// assistant message whose Content is valid JSON but not a []ToolCall array is kept as
-// content rather than being misinterpreted as a tool-call payload.
 func TestConvertFullHistoryToOpenrouterFormat_ValidJSONNotToolCallArray(t *testing.T) {
 	svc := Service{}
 
@@ -537,7 +514,6 @@ func TestConvertFullHistoryToOpenrouterFormat_ValidJSONNotToolCallArray(t *testi
 	assert.Nil(t, result[0].ToolCalls)
 }
 
-// --- Helpers for capturing call arguments ---
 
 type mockWithCapture struct {
 	*mockOllamaClient
@@ -558,3 +534,4 @@ func (m *mockWithCapture) PostChat(ctx context.Context, modelID string, history 
 	}
 	return m.mockOllamaClient.PostChat(ctx, modelID, history, thinking)
 }
+

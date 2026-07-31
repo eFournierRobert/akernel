@@ -49,8 +49,6 @@ func insertMessage(t *testing.T, db *sqlx.DB, role, content string, conversation
 	return int(id)
 }
 
-// insertMessageWithToolCallId inserts a message carrying a non-null tool_call_id,
-// exercising the new nullable column at the repo layer.
 func insertMessageWithToolCallId(t *testing.T, db *sqlx.DB, role, content string, conversationID, tokenCount int, toolCallID string) int {
 	t.Helper()
 	ts := time.Now().Unix()
@@ -313,9 +311,6 @@ func TestSelectAllMessagesAfterLastPrompt_Basic(t *testing.T) {
 	assert.Len(t, messages, 2)
 }
 
-// TestSelectAllMessagesAfterLastPrompt_DuplicatePromptUsesLastOccurrence verifies
-// that messages are selected after the MOST RECENT occurrence of a prompt when multiple messages have identical content.
-// Fixed by using message ID comparison instead of content matching which couldn't distinguish between duplicate prompts.
 func TestSelectAllMessagesAfterLastPrompt_DuplicatePromptUsesLastOccurrence(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
@@ -349,9 +344,6 @@ func TestSelectAllMessagesAfterLastPrompt_NotFound(t *testing.T) {
 	assert.Empty(t, messages)
 }
 
-// TestInsertMessage_WithToolCallId verifies that a repository.Message carrying a
-// non-empty ToolCallId is persisted to the new tool_call_id column via NamedExec
-// (exercising sql.NullString binding, which the higher-level chat tests don't reach).
 func TestInsertMessage_WithToolCallId(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
@@ -378,9 +370,6 @@ func TestInsertMessage_WithToolCallId(t *testing.T) {
 	assert.Equal(t, "call-42", stored.String)
 }
 
-// TestInsertMessage_WithoutToolCallId verifies that a Message with an invalid
-// (zero-value) sql.NullString ToolCallId persists NULL to the column rather than
-// an empty string, matching how chat/insertToolAnswer binds only when Valid is true.
 func TestInsertMessage_WithoutToolCallId(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
@@ -403,9 +392,6 @@ func TestInsertMessage_WithoutToolCallId(t *testing.T) {
 	assert.False(t, stored.Valid)
 }
 
-// TestSelectMessagesOfConvo_ReturnsToolCallId verifies that SelectMessagesOfConvo
-// reads the tool_call_id column back into the Message struct for tool rows, and
-// that non-tool rows yield an invalid sql.NullString.
 func TestSelectMessagesOfConvo_ReturnsToolCallId(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
@@ -429,12 +415,6 @@ func TestSelectMessagesOfConvo_ReturnsToolCallId(t *testing.T) {
 	assert.False(t, messages[1].ToolCallId.Valid, "user row tool_call_id should be NULL")
 }
 
-// TestSelectMessagesOfConvo_WithSummaryPreservesToolCallId verifies tool_call_id handling
-// when a summary is set. NOTE: the summary row is fetched via a separate query
-// (message.go ~line 50) that selects only id, role, content — it omits tool_call_id, so
-// the prepended summary surfaces an invalid sql.NullString. Subsequent messages (fetched
-// via the id> summary query, which selects tool_call_id) preserve their ids. This documents
-// a production gap in the summary-fetch query.
 func TestSelectMessagesOfConvo_WithSummaryPreservesToolCallId(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
@@ -457,7 +437,7 @@ func TestSelectMessagesOfConvo_WithSummaryPreservesToolCallId(t *testing.T) {
 	assert.Equal(t, "call-later", messages[1].ToolCallId.String)
 }
 
-// toNullString is a small helper to build a valid sql.NullString for test fixtures.
 func toNullString(s string) sql.NullString {
 	return sql.NullString{String: s, Valid: true}
 }
+

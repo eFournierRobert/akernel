@@ -104,8 +104,6 @@ func newTestMux(handler Handler) http.Handler {
 	return mux
 }
 
-// --- POST /chat tests ---
-
 func TestChat_HappyPath_NewConversation(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
@@ -254,8 +252,6 @@ func TestChat_WithToolCalls_Success(t *testing.T) {
 	require.NoError(t, decodeBody(rec.Body, &result))
 	assert.GreaterOrEqual(t, len(result), 2)
 }
-
-// --- GET /conversation/{id} tests ---
 
 func TestGetFullConversation_SuccessWithMessages(t *testing.T) {
 	db := newTestDB(t)

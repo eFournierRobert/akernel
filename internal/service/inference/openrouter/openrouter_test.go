@@ -22,9 +22,6 @@ func testConfig() config.Config {
 	}
 }
 
-// setupTestServer spins up an httptest.Server that invokes handler for each
-// request, points openrouterBasePath at it, and restores the original base path
-// on test cleanup. Mirrors the helper used in the ollama package tests.
 func setupTestServer(t *testing.T, handler http.HandlerFunc) {
 	t.Helper()
 	server := httptest.NewServer(handler)
@@ -123,9 +120,6 @@ func TestPostChat_ContextCancelled(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// TestPostChat_HTTPClientError exercises the client.Do error branch in PostChat
-// by pointing openrouterBasePath at a host that refuses connections. The httptest
-// server is closed before the request fires so the dial fails.
 func TestPostChat_HTTPClientError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -247,3 +241,4 @@ func TestPostChat_NilApiKey(t *testing.T) {
 func toPtr(s string) *string {
 	return &s
 }
+
