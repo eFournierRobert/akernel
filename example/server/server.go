@@ -13,10 +13,10 @@ var baseUrl string = "http://localhost:50500"
 
 func ListModels() ([]Model, error) {
 	resp, err := http.Get(buildUrl("/models"))
-	defer resp.Body.Close()
 	if err != nil || resp.StatusCode != 200 {
 		return nil, err
 	}
+	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -33,10 +33,10 @@ func ListModels() ([]Model, error) {
 
 func ListConversations() ([]Conversation, error) {
 	resp, err := http.Get(buildUrl("/conversation"))
-	defer resp.Body.Close()
 	if err != nil || resp.StatusCode != 200 {
 		return nil, err
 	}
+	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {

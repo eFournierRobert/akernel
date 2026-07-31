@@ -440,4 +440,3 @@ func TestSelectMessagesOfConvo_WithSummaryPreservesToolCallId(t *testing.T) {
 func toNullString(s string) sql.NullString {
 	return sql.NullString{String: s, Valid: true}
 }
-

@@ -93,7 +93,6 @@ func TestGetModel_NotFound(t *testing.T) {
 	require.Error(t, err)
 }
 
-
 func TestPostChat_Success(t *testing.T) {
 	mock := &mockOllamaClient{
 		response: ollama.MessageResponse{
@@ -223,7 +222,6 @@ func TestPostChat_ToolCallsPassthrough(t *testing.T) {
 	require.Len(t, resp.Response.ToolCalls, 1)
 	assert.Equal(t, "get_current_time", resp.Response.ToolCalls[0].Function.Name)
 }
-
 
 func TestGenerateConversationTitle_Success(t *testing.T) {
 	mock := &mockOllamaClient{
@@ -514,7 +512,6 @@ func TestConvertFullHistoryToOpenrouterFormat_ValidJSONNotToolCallArray(t *testi
 	assert.Nil(t, result[0].ToolCalls)
 }
 
-
 type mockWithCapture struct {
 	*mockOllamaClient
 	onCall           func(string)
@@ -534,4 +531,3 @@ func (m *mockWithCapture) PostChat(ctx context.Context, modelID string, history 
 	}
 	return m.mockOllamaClient.PostChat(ctx, modelID, history, thinking)
 }
-

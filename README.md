@@ -27,6 +27,8 @@ go build -o akernel cmd/main.go
 ./akernel
 ```
 
+> **Note:** akernel binds to `0.0.0.0:50500`, so it is reachable from other machines on your local network. There is no authentication — this is intentional for local/daemon use.
+
 ## Example usage
 ```bash
 # Start a new conversation using conversationId: -1

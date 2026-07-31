@@ -1,6 +1,6 @@
 # akernel
 
-Go CLI backend that proxies an LLM (Ollama) with conversation persistence in SQLite.
+Go CLI backend that proxies LLMs (Ollama and OpenRouter) with conversation persistence in SQLite.
 
 ## Agent role
 
@@ -19,7 +19,7 @@ go run ./cmd/main.go -dev         # dev mode (DB at ./database/database.db)
 ```
 
 - Requires **CGO** (uses `github.com/mattn/go-sqlite3`).
-- HTTP server listens on **localhost:50500**.
+- HTTP server binds to **0.0.0.0:50500** (reachable from the LAN; intentional, no auth).
 - In production, the DB lives at `$XDG_DATA_HOME/akernel/akernel.db`. Migrations run on every startup via goose.
 
 ## Architecture
@@ -31,8 +31,8 @@ cmd/main.go                  → single entrypoint, flag parsing, mux setup
 internal/handlers/           → HTTP handlers (chat, conversation, model)
 internal/service/chat/        → business logic for chat orchestration + tool-call dispatch
 internal/service/conversation/→ conversation summary helpers
-internal/service/inference/    → LLM request/response abstraction over Ollama; hosts inference/tools
-  └── tools/                  → function-calling tool schemas and handlers (e.g. get_current_time, write_to_file)
+internal/service/inference/    → LLM request/response abstraction over Ollama and OpenRouter; hosts inference/tools
+  └── tools/                  → function-calling tool schemas and handlers (get_current_time, fetch_webpage, web_search)
 internal/repository/         → sqlx DB access
 migrations/                  → goose SQL migrations (run automatically on startup)
 ```
@@ -47,15 +47,18 @@ go test ./internal/service/model/...
 
 No CI, linter, or formatter config configured. Standard gofmt applies.
 
-## External dependency: Ollama
+## External dependencies and configuration
 
-The service calls **Ollama** at `http://localhost:11434/api`. It must be running before the app starts, otherwise `main()` will `log.Fatal`. The call is routed through the inference layer (`internal/service/inference/`) rather than directly from business logic.
+Ollama-backed models call **Ollama** at `http://localhost:11434/api`; OpenRouter-backed models call the OpenRouter API. All provider calls are routed through the inference layer (`internal/service/inference/`) rather than directly from business logic. Neither provider is contacted at startup — failures only surface at request time.
 
-System prompt is loaded from `$XDG_CONFIG_HOME/akernel/system.md` at startup. If the file doesn't exist (and `-dev` isn't set to skip), the app will fail to start.
+Startup configuration is loaded by `internal/config/`:
+
+- `$XDG_CONFIG_HOME/akernel/config.toml` — **required**; `main()` will `log.Fatal` without it. Declares `models` (name, id, description, provider), plus optional `brave_api_key` and `open_router_key`.
+- `$XDG_CONFIG_HOME/akernel/system.md` — optional system prompt. If missing, the system prompt is silently empty (no error).
 
 ## Tool calls
 
-Ollama function-calling tools live in `internal/service/inference/tools/`.
+Function-calling tools live in `internal/service/inference/tools/` and are provider-agnostic (the same schemas are advertised to both Ollama and OpenRouter models). The advertised set is gated by config: `web_search` is only included when `brave_api_key` is set.
 
 Adding a new tool requires: schema function + handler function + registration in `GetAllToolSchemas()` and `ToolCallRouter()`.
 

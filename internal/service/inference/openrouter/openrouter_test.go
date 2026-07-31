@@ -241,4 +241,3 @@ func TestPostChat_NilApiKey(t *testing.T) {
 func toPtr(s string) *string {
 	return &s
 }
-
