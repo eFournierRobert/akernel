@@ -230,12 +230,9 @@ components:
         name:
           type: string
           description: Human-readable model name.
-        model:
+        description:
           type: string
-          description: Underlying model identifier.
-        size:
-          type: number
-          description: Approximate model size in gigabytes.
+          description: Small Ddscription of the model.
 
     ModelOnly:
       type: object
