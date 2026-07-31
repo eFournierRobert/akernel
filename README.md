@@ -1,19 +1,27 @@
 # Assistant Kernel (akernel)
 
-A minimal, resource-efficient HTTP daemon that adds state management and tools to Ollama written in Go.
+A minimal, resource-efficient HTTP daemon that adds state management and tools to Ollama and OpenRouter. 
+Fully written in Go.
 
 ## Key Features
-- **Persistence**: Persistent chat history with SQLite
-- **Tool integration**: Ability to create and provide tools to the model
-- **System prompt support**: loaded from `$XDG_CONFIG_HOME/akernel/system.md`
-- **Lightweight** : Optimized to be a local daemon with minimal resource usage
-- **Frontend agnostic**: Fully documented OpenAPI spec for easy usage.
+- Persistent chat history with SQLite
+- Ability to create and provide tools to the model
+- System prompt loaded from `$XDG_CONFIG_HOME/akernel/system.md`
+- Optimized to be a local daemon with minimal resource usage
+- Fully documented OpenAPI spec for easy usage.
+- Works with both Ollama and OpenRouter
 
 ## Quick Start
-**Ensure [Ollama](https://ollama.com/) is installed and running.**
+For this example, ensure [Ollama](https://ollama.com/) is installed and running.
 
+### Create an example config
 ```bash
-# clone and run
+mkdir $HOME/.config/akernel
+echo "models = [ { name = "gemma4:e4b", id = "gemma4:e4b-it-qat", description = "a small model", provider = "ollama" } ]" >> $HOME/.config/akernel/config.toml
+```
+
+### Clone the repository and run akernel
+```bash
 git clone https://codeberg.org/efournierrobert/akernel.git
 go build -o akernel cmd/main.go
 ./akernel
@@ -22,7 +30,7 @@ go build -o akernel cmd/main.go
 ## Example usage
 ```bash
 # Start a new conversation using conversationId: -1
-curl -X POST http://localhost:50500/chat -d '{"model": "gemma4:31b-it-qat", "message": "Could you tell me what is 2 + 2?", "conversationId": -1}'
+curl -X POST http://localhost:50500/chat -d '{"model": "gemma4:e4b", "message": "Could you tell me what is 2 + 2?", "conversationId": -1}'
 
 # Response: [
 # {
@@ -38,3 +46,4 @@ curl -X POST http://localhost:50500/chat -d '{"model": "gemma4:31b-it-qat", "mes
 ## Documentation
 - Full API specification is available at `openapi/doc.yaml`
 - Reference CLI implementation can be found in `example/acli.go`
+- Configuration file documentation can be found in `docs/` 
