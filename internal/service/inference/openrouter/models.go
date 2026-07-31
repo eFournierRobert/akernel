@@ -6,7 +6,6 @@ package openrouter
 import "akernel/internal/service/inference/tools"
 
 // HistoryMessage represents a single message in the conversation history for OpenRouter API compatibility.
-// The Role field identifies whether this is a "user", "assistant", or "system" message.
 // Content may be nil when the message only contains tool call references (e.g., assistant responses with function calls).
 type HistoryMessage struct {
 	Role       string           `json:"role"`
@@ -26,7 +25,7 @@ type Message struct {
 }
 
 // MessageResponse represents the parsed response from OpenRouter's chat completions API.
-// It contains one or more completion choices, each with a message and token usage statistics.
+// It contains one or more completion choices. Contains token usage statistics.
 type MessageResponse struct {
 	Choices []struct {
 		Message HistoryMessage `json:"message"`
