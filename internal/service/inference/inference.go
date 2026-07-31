@@ -117,6 +117,8 @@ func (s Service) GenerateConversationTitle(ctx context.Context, message, model s
 	return answer.Response.Content, nil
 }
 
+// convertOllamaHistoryToInferenceFormat transforms an Ollama history message into the
+// internal inference format, preserving role, content, thinking, and tool-call fields.
 func (s Service) convertOllamaHistoryToInferenceFormat(h ollama.HistoryMessage) HistoryMessage {
 	return HistoryMessage{
 		Role:      h.Role,
@@ -126,6 +128,9 @@ func (s Service) convertOllamaHistoryToInferenceFormat(h ollama.HistoryMessage) 
 	}
 }
 
+// convertOpenrouterHistoryToInferenceFormat transforms an OpenRouter history message into
+// the internal inference format, converting tool-call arguments from JSON back to strings
+// and handling nil Content pointers gracefully.
 func (s Service) convertOpenrouterHistoryToInferenceFormat(h openrouter.HistoryMessage) HistoryMessage {
 	if len(h.ToolCalls) > 0 {
 		for i, t := range h.ToolCalls {
@@ -151,6 +156,8 @@ func (s Service) convertOpenrouterHistoryToInferenceFormat(h openrouter.HistoryM
 	}
 }
 
+// convertFullHistoryToOllamaFormat transforms internal message history into the format
+// expected by Ollama's API, mapping role, content, and tool calls onto Ollama's HistoryMessage.
 func (s Service) convertFullHistoryToOllamaFormat(history []HistoryMessage) []ollama.HistoryMessage {
 	var h []ollama.HistoryMessage
 	for _, m := range history {

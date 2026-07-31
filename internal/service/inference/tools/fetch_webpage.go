@@ -42,7 +42,7 @@ func fetchWebPage(args []byte) string {
 	return string(content)
 }
 
-// fetchWebPageSchema returns the Ollama function-calling schema for the fetch_webpage tool.
+// fetchWebPageSchema returns the function-calling schema for the fetch_webpage tool.
 func fetchWebPageSchema() Tools {
 	parameters := json.RawMessage(`{
 		"type": "object",

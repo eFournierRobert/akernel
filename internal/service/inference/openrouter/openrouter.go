@@ -14,6 +14,7 @@ import (
 	"net/http"
 )
 
+// openrouterBasePath is the base URL for the OpenRouter API.
 var openrouterBasePath = "https://openrouter.ai/api/v1"
 
 // Service wraps the OpenRouter chat completions API with configured authentication and tool support.

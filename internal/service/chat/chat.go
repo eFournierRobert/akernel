@@ -10,6 +10,7 @@ import (
 	"akernel/internal/service/inference"
 	"akernel/internal/service/inference/tools"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -191,7 +192,7 @@ func (s *Service) insertToolAnswer(conversationId int, toolAnswer, callId string
 		Role:           "tool",
 		Content:        toolAnswer,
 		ConversationId: conversationId,
-		ToolCallId:     callId,
+		ToolCallId:     sql.NullString{String: callId, Valid: true},
 		DateTime:       time.Now(),
 	}
 
@@ -199,7 +200,7 @@ func (s *Service) insertToolAnswer(conversationId int, toolAnswer, callId string
 	return err
 }
 
-// fetchConversationHistory retrieves all messages for a conversation and converts them into the history format required by Ollama.
+// fetchConversationHistory retrieves all messages for a conversation and converts them into the history format required by the configured inference provider.
 func (s *Service) fetchConversationHistory(conversationId int) ([]inference.HistoryMessage, error) {
 	messages, err := s.messageRepo.SelectMessagesOfConvo(conversationId)
 	if err != nil {
@@ -211,14 +212,14 @@ func (s *Service) fetchConversationHistory(conversationId int) ([]inference.Hist
 		history = append(history, inference.HistoryMessage{
 			Role:       m.Role,
 			Content:    m.Content,
-			ToolCallId: m.ToolCallId,
+			ToolCallId: m.ToolCallId.String,
 		})
 	}
 
 	return history, nil
 }
 
-// getHistoryAndPostChat retrieves the conversation history and sends it to Ollama for a response.
+// getHistoryAndPostChat retrieves the conversation history and sends it to the configured inference provider for a response.
 func (s *Service) getHistoryAndPostChat(ctx context.Context, conversationId int, prompt *dto.Prompt) (inference.MessageResponse, error) {
 	history, err := s.fetchConversationHistory(conversationId)
 	if err != nil {
@@ -233,7 +234,7 @@ func (s *Service) getHistoryAndPostChat(ctx context.Context, conversationId int,
 	return answer, err
 }
 
-// makeToolCalls iterates over the tool calls returned by Ollama, dispatches each through ToolCallRouter, and stores the results as messages.
+// makeToolCalls iterates over the tool calls returned by the model, dispatches each through ToolCallRouter, and stores the results as messages.
 func (s *Service) makeToolCalls(thinking string, conversationId int, toolCalls []tools.ToolCall) error {
 	toolCallJson, err := json.Marshal(toolCalls)
 	if err != nil {

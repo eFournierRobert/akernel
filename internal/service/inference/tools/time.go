@@ -14,7 +14,7 @@ func getCurrentTime() string {
 	return currentTime.String()
 }
 
-// GetCurrentTimeSchema returns the Ollama function-calling schema for the get_current_time tool.
+// getCurrentTimeSchema returns the function-calling schema for the get_current_time tool.
 func getCurrentTimeSchema() Tools {
 	parameters := json.RawMessage(`{
     	"type": "object", 

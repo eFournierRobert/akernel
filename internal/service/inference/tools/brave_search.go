@@ -10,6 +10,7 @@ import (
 	"strings"
 )
 
+// braveBaseUrl is the endpoint for the Brave Search web search API.
 const braveBaseUrl string = "https://api.search.brave.com/res/v1/web/search"
 
 // braveResponse represents the JSON structure returned by the Brave Search API.
@@ -101,7 +102,7 @@ func webSearch(args []byte) string {
 	return formatResponseToMarkdown(braveResponse)
 }
 
-// webSearchSchema returns the Ollama function-calling schema for the web_search tool.
+// webSearchSchema returns the function-calling schema for the web_search tool.
 func webSearchSchema() Tools {
 	parameters := json.RawMessage(`{
 		"type": "object",

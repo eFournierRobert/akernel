@@ -20,6 +20,7 @@ type ollamaClient interface {
 	PostChat(ctx context.Context, modelName string, history []ollama.HistoryMessage, thinking bool) (ollama.MessageResponse, error)
 }
 
+// openrouterClient abstracts the OpenRouter provider so it can be mocked in tests.
 type openrouterClient interface {
 	PostChat(ctx context.Context, modelName string, history []openrouter.HistoryMessage) (openrouter.MessageResponse, error)
 }

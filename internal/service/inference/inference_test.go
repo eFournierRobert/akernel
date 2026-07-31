@@ -3,8 +3,10 @@ package inference
 import (
 	"akernel/internal/config"
 	"akernel/internal/service/inference/ollama"
+	"akernel/internal/service/inference/openrouter"
 	"akernel/internal/service/inference/tools"
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -18,6 +20,15 @@ type mockOllamaClient struct {
 }
 
 func (m *mockOllamaClient) PostChat(_ context.Context, _ string, _ []ollama.HistoryMessage, _ bool) (ollama.MessageResponse, error) {
+	return m.response, m.err
+}
+
+type mockOpenRouterClient struct {
+	response openrouter.MessageResponse
+	err      error
+}
+
+func (m *mockOpenRouterClient) PostChat(_ context.Context, _ string, _ []openrouter.HistoryMessage) (openrouter.MessageResponse, error) {
 	return m.response, m.err
 }
 
@@ -40,6 +51,20 @@ func testOllamaConfig() config.Config {
 			{Name: "gemma", Id: "gemma:27b", Description: "A larger model", Provider: "ollama"},
 		},
 	}
+}
+
+func testOpenRouterConfig() config.Config {
+	return config.Config{
+		SystemPrompt:     "You are a helpful assistant.",
+		OpenRouterApiKey: "test-key",
+		Models: []config.Model{
+			{Name: "gpt4", Id: "openai/gpt-4", Description: "OpenRouter model", Provider: "openrouter"},
+		},
+	}
+}
+
+func toPtrOr(s string) *string {
+	return &s
 }
 
 func TestNew(t *testing.T) {
@@ -254,6 +279,262 @@ func TestGenerateConversationTitle_ModelNotFound(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "error while generating title")
+}
+
+func TestPostChat_OpenRouter_RoutesCorrectly(t *testing.T) {
+	mock := &mockOpenRouterClient{
+		response: openrouter.MessageResponse{
+			Choices: []struct {
+				Message openrouter.HistoryMessage `json:"message"`
+			}{
+				{Message: openrouter.HistoryMessage{Role: "assistant", Content: toPtrOr("OR response!")}},
+			},
+			Usage: struct {
+				PromptTokens int `json:"prompt_tokens"`
+				TotalTokens  int `json:"total_tokens"`
+			}{PromptTokens: 8, TotalTokens: 20},
+		},
+	}
+
+	svc := Service{
+		systemPrompt:      HistoryMessage{Role: "system", Content: "sys"},
+		models:            testOpenRouterConfig().Models,
+		openrouterService: mock,
+	}
+
+	resp, err := svc.PostChat(context.Background(), "gpt4", []HistoryMessage{{Role: "user", Content: "Hi"}}, false)
+
+	require.NoError(t, err)
+	assert.Equal(t, "gpt4", resp.Model)
+	assert.Equal(t, "OR response!", resp.Response.Content)
+	assert.Equal(t, 20, resp.TokenCount)
+	assert.Equal(t, 8, resp.PromptTokenCount)
+}
+
+func TestPostChat_OpenRouter_Error(t *testing.T) {
+	mock := &mockOpenRouterClient{err: errors.New("openrouter unavailable")}
+
+	svc := Service{
+		systemPrompt:      HistoryMessage{Role: "system", Content: "sys"},
+		models:            testOpenRouterConfig().Models,
+		openrouterService: mock,
+	}
+
+	_, err := svc.PostChat(context.Background(), "gpt4", nil, false)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "openrouter unavailable")
+}
+
+// TestPostChat_OpenRouter_NilContentHandled verifies that OpenRouter responses with nil Content
+// are gracefully converted to empty string instead of panicking on nil pointer dereference.
+func TestPostChat_OpenRouter_NilContentHandled(t *testing.T) {
+	mock := &mockOpenRouterClient{
+		response: openrouter.MessageResponse{
+			Choices: []struct {
+				Message openrouter.HistoryMessage `json:"message"`
+			}{
+				{Message: openrouter.HistoryMessage{Role: "assistant", Content: nil}},
+			},
+		},
+	}
+
+	svc := Service{
+		systemPrompt:      HistoryMessage{Role: "system", Content: "sys"},
+		models:            testOpenRouterConfig().Models,
+		openrouterService: mock,
+	}
+
+	resp, err := svc.PostChat(context.Background(), "gpt4", nil, false)
+
+	require.NoError(t, err)
+	assert.Equal(t, "", resp.Response.Content)
+}
+
+// TestConvertOpenrouterHistoryToInferenceFormat_ToolCallParseError verifies that when a tool call's
+// Arguments field contains invalid JSON for string unmarshaling, ToolCalls is set to nil.
+func TestConvertOpenrouterHistoryToInferenceFormat_ToolCallParseError(t *testing.T) {
+	svc := Service{}
+
+	emptyStr := ""
+	h := openrouter.HistoryMessage{
+		Role:    "assistant",
+		Content: &emptyStr,
+		ToolCalls: []tools.ToolCall{
+			{Function: tools.Function{Name: "test", Arguments: json.RawMessage("not a string")}},
+		},
+	}
+
+	result := svc.convertOpenrouterHistoryToInferenceFormat(h)
+	assert.Nil(t, result.ToolCalls)
+}
+
+// TestConvertFullHistoryToOpenrouterFormat_Basic verifies history messages transform correctly:
+// user content becomes pointer, assistant JSON tool-call content is parsed, empty content yields nil.
+func TestConvertFullHistoryToOpenrouterFormat_Basic(t *testing.T) {
+	svc := Service{}
+
+	input := []HistoryMessage{
+		{Role: "system", Content: "you are helpful"},
+		{Role: "user", Content: "hello"},
+		{Role: "assistant", Content: ""},
+	}
+
+	result := svc.convertFullHistoryToOpenrouterFormat(input)
+
+	require.Len(t, result, 3)
+	assert.Equal(t, "system", result[0].Role)
+	assert.Equal(t, "you are helpful", *result[0].Content)
+	assert.Equal(t, "user", result[1].Role)
+	assert.Equal(t, "hello", *result[1].Content)
+	assert.Nil(t, result[2].Content)
+}
+
+// TestConvertFullHistoryToOpenrouterFormat_ToolCallsInAssistant verifies that assistant messages
+// whose Content is valid JSON array of ToolCall objects get parsed and moved to ToolCalls field.
+func TestConvertFullHistoryToOpenrouterFormat_ToolCallsInAssistant(t *testing.T) {
+	svc := Service{}
+
+	toolCallJSON := `[{"function":{"name":"test","arguments":null},"type":"function","id":"call123"}]`
+	input := []HistoryMessage{
+		{Role: "assistant", Content: toolCallJSON, ToolCalls: nil},
+	}
+
+	result := svc.convertFullHistoryToOpenrouterFormat(input)
+
+	require.Len(t, result, 1)
+	assert.True(t, len(result[0].ToolCalls) > 0)
+	assert.Equal(t, "test", result[0].ToolCalls[0].Function.Name)
+	assert.Nil(t, result[0].Content)
+}
+
+// TestConvertFullHistoryToOpenrouterFormat_ToolCallIdIncluded verifies ToolCallId is set on non-empty messages.
+func TestConvertFullHistoryToOpenrouterFormat_ToolCallIdIncluded(t *testing.T) {
+	svc := Service{}
+
+	input := []HistoryMessage{
+		{Role: "user", Content: "hi", ToolCallId: "tc-123"},
+	}
+
+	result := svc.convertFullHistoryToOpenrouterFormat(input)
+
+	assert.Equal(t, "tc-123", result[0].ToolCallId)
+}
+
+// TestPostChat_MixedProviders_RoutesCorrectly verifies that when both Ollama and OpenRouter
+// models are configured simultaneously, the service dispatches to the correct provider.
+func TestPostChat_MixedProviders_RoutesCorrectly(t *testing.T) {
+	ollamaMock := &mockOllamaClient{
+		response: ollama.MessageResponse{
+			Response: ollama.HistoryMessage{Role: "assistant", Content: "ollama reply"},
+		},
+	}
+
+	openrouterMock := &mockOpenRouterClient{
+		response: openrouter.MessageResponse{
+			Choices: []struct {
+				Message openrouter.HistoryMessage `json:"message"`
+			}{
+				{Message: openrouter.HistoryMessage{Role: "assistant", Content: toPtrOr("or reply")}},
+			},
+		},
+	}
+
+	svc := Service{
+		systemPrompt: HistoryMessage{Role: "system", Content: "sys"},
+		models: []config.Model{
+			{Name: "local", Id: "llama3.2:latest", Provider: "ollama"},
+			{Name: "cloud", Id: "openai/gpt-4", Provider: "openrouter"},
+		},
+		ollamaService:     ollamaMock,
+		openrouterService: openrouterMock,
+	}
+
+	ollamaResp, err := svc.PostChat(context.Background(), "local", nil, false)
+	require.NoError(t, err)
+	assert.Equal(t, "local", ollamaResp.Model)
+	assert.Equal(t, "ollama reply", ollamaResp.Response.Content)
+
+	orResp, err := svc.PostChat(context.Background(), "cloud", nil, false)
+	require.NoError(t, err)
+	assert.Equal(t, "cloud", orResp.Model)
+	assert.Equal(t, "or reply", orResp.Response.Content)
+}
+
+// TestConvertOpenrouterHistoryToInferenceFormat_ValidToolCallArgs documents the current
+// behavior of the OpenRouter→inference converter when a tool call's Arguments field is a
+// JSON-encoded string: it unmarshals into a string then re-encodes as json.RawMessage.
+func TestConvertOpenrouterHistoryToInferenceFormat_ValidToolCallArgs(t *testing.T) {
+	svc := Service{}
+
+	emptyStr := ""
+	// OpenRouter returns arguments as a JSON-encoded string, e.g. '"{\"q\":\"hi\"}"'.
+	h := openrouter.HistoryMessage{
+		Role:    "assistant",
+		Content: &emptyStr,
+		ToolCalls: []tools.ToolCall{
+			{
+				Function: tools.Function{
+					Name:      "web_search",
+					Arguments: json.RawMessage(`"{\"query\":\"hello\"}"`),
+				},
+			},
+		},
+	}
+
+	result := svc.convertOpenrouterHistoryToInferenceFormat(h)
+	require.Len(t, result.ToolCalls, 1)
+	assert.Equal(t, "web_search", result.ToolCalls[0].Function.Name)
+	// After unmarshaling the JSON string and re-encoding, the args RawMessage holds
+	// the inner string content (without surrounding quotes) per current behavior.
+	assert.Equal(t, json.RawMessage(`{"query":"hello"}`), result.ToolCalls[0].Function.Arguments)
+}
+
+// TestConvertOpenrouterHistoryToInferenceFormat_NilContentPreserved verifies that a nil
+// Content pointer is converted to an empty string rather than panicking.
+func TestConvertOpenrouterHistoryToInferenceFormat_NilContentPreserved(t *testing.T) {
+	svc := Service{}
+
+	h := openrouter.HistoryMessage{Role: "assistant", Content: nil}
+	result := svc.convertOpenrouterHistoryToInferenceFormat(h)
+
+	assert.Equal(t, "", result.Content)
+	assert.Equal(t, "assistant", result.Role)
+	assert.Nil(t, result.ToolCalls)
+}
+
+// TestConvertFullHistoryToOpenrouterFormat_PlainAssistantContent verifies that an assistant
+// message whose Content is not a JSON tool-call array is preserved as a content pointer.
+func TestConvertFullHistoryToOpenrouterFormat_PlainAssistantContent(t *testing.T) {
+	svc := Service{}
+
+	input := []HistoryMessage{
+		{Role: "assistant", Content: "Sure, here is the answer."},
+	}
+
+	result := svc.convertFullHistoryToOpenrouterFormat(input)
+
+	require.Len(t, result, 1)
+	require.NotNil(t, result[0].Content)
+	assert.Equal(t, "Sure, here is the answer.", *result[0].Content)
+	assert.Nil(t, result[0].ToolCalls)
+}
+
+// TestConvertFullHistoryToOpenrouterFormat_ValidJSONNotToolCallArray verifies that an
+// assistant message whose Content is valid JSON but not a []ToolCall array is kept as
+// content rather than being misinterpreted as a tool-call payload.
+func TestConvertFullHistoryToOpenrouterFormat_ValidJSONNotToolCallArray(t *testing.T) {
+	svc := Service{}
+
+	input := []HistoryMessage{
+		{Role: "assistant", Content: `{"some":"object","not":"a tool call array"}`},
+	}
+
+	result := svc.convertFullHistoryToOpenrouterFormat(input)
+
+	require.Len(t, result, 1)
+	require.NotNil(t, result[0].Content)
+	assert.Equal(t, `{"some":"object","not":"a tool call array"}`, *result[0].Content)
+	assert.Nil(t, result[0].ToolCalls)
 }
 
 // --- Helpers for capturing call arguments ---
