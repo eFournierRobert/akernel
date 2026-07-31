@@ -37,9 +37,8 @@ func NewChatService(db *sqlx.DB, inference inference.InferenceClient) *Service {
 	return &s
 }
 
-// GeneratePromptAnswer takes a user prompt and generates an AI answer. It supports both Ollama
-// and OpenRouter providers, handling the tool-calling workflow when models request function calls.
-// If no conversation exists (ConversationId == -1), it creates one with a generated title.
+// GeneratePromptAnswer takes a user prompt and generates an AI answer. It handles the tool-calling workflow when models
+// request function calls. If no conversation exists (ConversationId == -1), it creates one with a generated title.
 // The method iterates through tool calls until the model produces a final response without further requests.
 func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) ([]dto.Answer, error) {
 	if modelIsValid, err := s.doesModelExist(prompt.Model); err != nil {
@@ -200,7 +199,7 @@ func (s *Service) insertToolAnswer(conversationId int, toolAnswer, callId string
 	return err
 }
 
-// fetchConversationHistory retrieves all messages for a conversation and converts them into the history format required by the configured inference provider.
+// fetchConversationHistory retrieves all messages for a conversation and converts them into the history format.
 func (s *Service) fetchConversationHistory(conversationId int) ([]inference.HistoryMessage, error) {
 	messages, err := s.messageRepo.SelectMessagesOfConvo(conversationId)
 	if err != nil {
@@ -219,7 +218,7 @@ func (s *Service) fetchConversationHistory(conversationId int) ([]inference.Hist
 	return history, nil
 }
 
-// getHistoryAndPostChat retrieves the conversation history and sends it to the configured inference provider for a response.
+// getHistoryAndPostChat retrieves the conversation history and sends it for a response.
 func (s *Service) getHistoryAndPostChat(ctx context.Context, conversationId int, prompt *dto.Prompt) (inference.MessageResponse, error) {
 	history, err := s.fetchConversationHistory(conversationId)
 	if err != nil {
@@ -234,7 +233,7 @@ func (s *Service) getHistoryAndPostChat(ctx context.Context, conversationId int,
 	return answer, err
 }
 
-// makeToolCalls iterates over the tool calls returned by the model, dispatches each through ToolCallRouter, and stores the results as messages.
+// makeToolCalls iterates over the tool calls and executes them.
 func (s *Service) makeToolCalls(thinking string, conversationId int, toolCalls []tools.ToolCall) error {
 	toolCallJson, err := json.Marshal(toolCalls)
 	if err != nil {
