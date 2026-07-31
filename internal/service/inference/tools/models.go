@@ -8,16 +8,20 @@ type Tools struct {
 	Function ToolFunction `json:"function"`
 }
 
-// ToolFunction specifies the name, description, and JSON-schema parameters of an Ollama function-calling tool.
+// ToolFunction specifies the name, description, and JSON-schema parameters of a function-calling tool.
 type ToolFunction struct {
 	Name        string          `json:"name"`
 	Parameters  json.RawMessage `json:"parameters"`
 	Description string          `json:"description"`
 }
 
-// ToolCall represents a single tool invocation request returned by the Ollama model.
+// ToolCall represents a single tool invocation request returned by an LLM provider.
+// The Type field indicates the kind of call (e.g., "function"). The Id field is
+// a unique identifier for the invocation, used to correlate results back to callers.
 type ToolCall struct {
 	Function Function `json:"function"`
+	Type     string   `json:"type"`
+	Id       string   `json:"id"`
 }
 
 // Function holds the name and deserialized arguments of a tool call issued by the model.

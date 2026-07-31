@@ -95,7 +95,6 @@ func (m *errMockInferenceClient) GenerateConversationTitle(_ context.Context, _ 
 	return "", nil
 }
 
-// newTestMux builds a ServeMux wired to the handler so PathValue works.
 func newTestMux(handler Handler) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /conversation", handler.GetConversations)
@@ -103,8 +102,6 @@ func newTestMux(handler Handler) http.Handler {
 	mux.HandleFunc("POST /conversation/{id}/summarize", handler.PostSummarize)
 	return mux
 }
-
-// --- GetConversations tests ---
 
 func TestGetConversations_SuccessWithResults(t *testing.T) {
 	db := newTestDB(t)
@@ -162,8 +159,6 @@ func TestGetConversations_ServiceError(t *testing.T) {
 
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
-
-// --- DeleteConversation tests ---
 
 func TestDeleteConversation_Success(t *testing.T) {
 	db := newTestDB(t)
@@ -243,8 +238,6 @@ func TestDeleteConversation_NegativeID(t *testing.T) {
 
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 }
-
-// --- PostSummarize tests ---
 
 func TestPostSummarize_HappyPath(t *testing.T) {
 	db := newTestDB(t)

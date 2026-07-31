@@ -28,7 +28,8 @@ type Options struct {
 	NumCtx      int     `json:"num_ctx"`
 }
 
-// MessageResponse represents a single chunk of a streaming response from the Ollama API.
+// MessageResponse represents the non-streaming response returned by the Ollama /chat endpoint,
+// including the assistant message and token usage statistics.
 type MessageResponse struct {
 	Model            string         `json:"model"`
 	Done             bool           `json:"done"`

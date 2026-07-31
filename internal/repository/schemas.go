@@ -7,13 +7,14 @@ import (
 
 // Message represents a single message stored in the database.
 type Message struct {
-	ID             int       `db:"id"`
-	Role           string    `db:"role"`
-	Content        string    `db:"content"`
-	Thinking       string    `db:"thinking"`
-	DateTime       time.Time `db:"datetime"`
-	ConversationId int       `db:"conversation_id"`
-	TokenCount     int       `db:"token_count"`
+	ID             int            `db:"id"`
+	Role           string         `db:"role"`
+	Content        string         `db:"content"`
+	Thinking       string         `db:"thinking"`
+	ToolCallId     sql.NullString `db:"tool_call_id"`
+	DateTime       time.Time      `db:"datetime"`
+	ConversationId int            `db:"conversation_id"`
+	TokenCount     int            `db:"token_count"`
 }
 
 // Conversation represents a conversation thread with a title.

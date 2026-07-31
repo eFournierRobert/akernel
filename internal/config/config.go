@@ -20,15 +20,17 @@ type Model struct {
 
 // TomlConfig mirrors the shape of config.toml.
 type TomlConfig struct {
-	Models      []Model `toml:"models"`
-	BraveApiKey string  `toml:"brave_api_key"`
+	Models           []Model `toml:"models"`
+	BraveApiKey      string  `toml:"brave_api_key"`
+	OpenRouterApiKey string  `toml:"open_router_key"`
 }
 
 // Config bundles all startup configuration consumed by main.
 type Config struct {
-	SystemPrompt string
-	Models       []Model
-	BraveApiKey  string
+	SystemPrompt     string
+	Models           []Model
+	BraveApiKey      string
+	OpenRouterApiKey string
 }
 
 // ReadConfig loads the system prompt and TOML config, returning a ready-to-use Config.
@@ -40,9 +42,10 @@ func ReadConfig() (Config, error) {
 	}
 
 	return Config{
-		SystemPrompt: sysPrompt,
-		Models:       tomlConfig.Models,
-		BraveApiKey:  tomlConfig.BraveApiKey,
+		SystemPrompt:     sysPrompt,
+		Models:           tomlConfig.Models,
+		BraveApiKey:      tomlConfig.BraveApiKey,
+		OpenRouterApiKey: tomlConfig.OpenRouterApiKey,
 	}, nil
 }
 

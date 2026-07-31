@@ -2,6 +2,7 @@ package message
 
 import (
 	"akernel/internal/repository"
+	"database/sql"
 	"testing"
 	"time"
 
@@ -42,6 +43,18 @@ func insertMessage(t *testing.T, db *sqlx.DB, role, content string, conversation
 	res, err := db.Exec(
 		"INSERT INTO messages (role, content, thinking, datetime, conversation_id, token_count) VALUES (?, ?, '', ?, ?, ?)",
 		role, content, ts, conversationID, tokenCount,
+	)
+	require.NoError(t, err)
+	id, _ := res.LastInsertId()
+	return int(id)
+}
+
+func insertMessageWithToolCallId(t *testing.T, db *sqlx.DB, role, content string, conversationID, tokenCount int, toolCallID string) int {
+	t.Helper()
+	ts := time.Now().Unix()
+	res, err := db.Exec(
+		"INSERT INTO messages (role, content, thinking, datetime, conversation_id, token_count, tool_call_id) VALUES (?, ?, '', ?, ?, ?, ?)",
+		role, content, ts, conversationID, tokenCount, toolCallID,
 	)
 	require.NoError(t, err)
 	id, _ := res.LastInsertId()
@@ -298,9 +311,6 @@ func TestSelectAllMessagesAfterLastPrompt_Basic(t *testing.T) {
 	assert.Len(t, messages, 2)
 }
 
-// TestSelectAllMessagesAfterLastPrompt_DuplicatePromptUsesLastOccurrence verifies
-// that messages are selected after the MOST RECENT occurrence of a prompt when multiple messages have identical content.
-// Fixed by using message ID comparison instead of content matching which couldn't distinguish between duplicate prompts.
 func TestSelectAllMessagesAfterLastPrompt_DuplicatePromptUsesLastOccurrence(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
@@ -333,3 +343,101 @@ func TestSelectAllMessagesAfterLastPrompt_NotFound(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, messages)
 }
+
+func TestInsertMessage_WithToolCallId(t *testing.T) {
+	db := newTestDB(t)
+	defer db.Close()
+	repo := New(db)
+
+	cid := insertConversation(t, db, "toolcall insert")
+
+	mid, err := repo.InsertMessage(repository.Message{
+		Role:           "tool",
+		Content:        "result payload",
+		Thinking:       "",
+		DateTime:       time.Now(),
+		ConversationId: cid,
+		TokenCount:     12,
+		ToolCallId:     toNullString("call-42"),
+	})
+	require.NotEmpty(t, mid)
+	require.NoError(t, err)
+
+	var stored sql.NullString
+	require.NoError(t, db.Get(&stored,
+		"SELECT tool_call_id FROM messages WHERE id = ?", mid))
+	assert.True(t, stored.Valid)
+	assert.Equal(t, "call-42", stored.String)
+}
+
+func TestInsertMessage_WithoutToolCallId(t *testing.T) {
+	db := newTestDB(t)
+	defer db.Close()
+	repo := New(db)
+
+	cid := insertConversation(t, db, "no toolcall insert")
+
+	mid, err := repo.InsertMessage(repository.Message{
+		Role:           "user",
+		Content:        "plain prompt",
+		DateTime:       time.Now(),
+		ConversationId: cid,
+		TokenCount:     3,
+	})
+	require.NoError(t, err)
+
+	var stored sql.NullString
+	require.NoError(t, db.Get(&stored,
+		"SELECT tool_call_id FROM messages WHERE id = ?", mid))
+	assert.False(t, stored.Valid)
+}
+
+func TestSelectMessagesOfConvo_ReturnsToolCallId(t *testing.T) {
+	db := newTestDB(t)
+	defer db.Close()
+	repo := New(db)
+
+	cid := insertConversation(t, db, "toolcall select")
+	insertMessageWithToolCallId(t, db, "tool", "result", cid, 5, "call-9")
+	insertMessage(t, db, "user", "question", cid, 7)
+
+	messages, err := repo.SelectMessagesOfConvo(cid)
+	require.NoError(t, err)
+	require.Len(t, messages, 2)
+
+	// Tool row carries the id.
+	assert.Equal(t, "tool", messages[0].Role)
+	assert.True(t, messages[0].ToolCallId.Valid, "tool row tool_call_id should be valid")
+	assert.Equal(t, "call-9", messages[0].ToolCallId.String)
+
+	// User row has no tool_call_id.
+	assert.Equal(t, "user", messages[1].Role)
+	assert.False(t, messages[1].ToolCallId.Valid, "user row tool_call_id should be NULL")
+}
+
+func TestSelectMessagesOfConvo_WithSummaryPreservesToolCallId(t *testing.T) {
+	db := newTestDB(t)
+	defer db.Close()
+	repo := New(db)
+
+	cid := insertConversation(t, db, "toolcall with summary")
+	summaryID := insertMessageWithToolCallId(t, db, "tool", "summarized tool result", cid, 30, "call-sum")
+	insertMessageWithToolCallId(t, db, "tool", "later tool result", cid, 10, "call-later")
+
+	_, err := db.Exec("UPDATE conversations SET last_summary = ? WHERE id = ?", summaryID, cid)
+	require.NoError(t, err)
+
+	messages, err := repo.SelectMessagesOfConvo(cid)
+	require.NoError(t, err)
+	require.Len(t, messages, 2)
+
+	// Summary row: tool_call_id is NOT selected by the summary query, so it is invalid.
+	assert.False(t, messages[0].ToolCallId.Valid, "summary row omits tool_call_id in its SELECT")
+	// Later message: selected with tool_call_id, preserved correctly.
+	assert.Equal(t, "call-later", messages[1].ToolCallId.String)
+}
+
+func toNullString(s string) sql.NullString {
+	return sql.NullString{String: s, Valid: true}
+}
+

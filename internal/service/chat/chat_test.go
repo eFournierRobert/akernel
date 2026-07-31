@@ -9,6 +9,7 @@ import (
 	"akernel/internal/service/inference"
 	"akernel/internal/service/inference/tools"
 	"context"
+	"database/sql"
 	"errors"
 	"testing"
 	"time"
@@ -45,7 +46,7 @@ func insertMessage(t *testing.T, db *sqlx.DB, role, content string, conversation
 	t.Helper()
 	ts := time.Now().Unix()
 	_, err := db.Exec(
-		"INSERT INTO messages (role, content, thinking, datetime, conversation_id, token_count) VALUES (?, ?, '', ?, ?, ?)",
+		"INSERT INTO messages (role, content, thinking, datetime, conversation_id, token_count, tool_call_id) VALUES (?, ?, '', ?, ?, ?, NULL)",
 		role, content, ts, conversationID, tokenCount,
 	)
 	require.NoError(t, err)
@@ -270,9 +271,6 @@ func TestGeneratePromptAnswer_OllamaPostChatError_RollsBack(t *testing.T) {
 	assert.Equal(t, 0, count)
 }
 
-// TestGeneratePromptAnswer_PostChatError_PreservesPriorHistory verifies that when
-// inference fails, only the new prompt is rolled back, leaving prior history intact.
-// Fixed by using message IDs instead of content-based matching which caused double-pops.
 func TestGeneratePromptAnswer_PostChatError_PreservesPriorHistory(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
@@ -301,8 +299,6 @@ func TestGeneratePromptAnswer_PostChatError_PreservesPriorHistory(t *testing.T) 
 	assert.Equal(t, []string{"earlier question", "earlier answer"}, contents)
 }
 
-// TestGeneratePromptAnswer_ToolCallThenError_PreservesPriorHistory verifies the fix
-// for double-pop on error paths after tool calls have been made. Uses ID-based message tracking.
 func TestGeneratePromptAnswer_ToolCallThenError_PreservesPriorHistory(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
@@ -340,8 +336,6 @@ func TestGeneratePromptAnswer_ToolCallThenError_PreservesPriorHistory(t *testing
 	assert.Equal(t, 1, count)
 }
 
-// TestGeneratePromptAnswer_ContextCancelled_RollsBack verifies proper context cancellation handling.
-// When the context is cancelled, the service should roll back ONLY the new prompt, leaving prior history intact.
 func TestGeneratePromptAnswer_ContextCancelled_RollsBack(t *testing.T) {
 	db := newTestDB(t)
 	defer db.Close()
@@ -451,4 +445,193 @@ func TestGetConversation_ConversationNotFound(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.True(t, errors.Is(err, service.ErrConversationDoesNotExist))
+}
+
+func TestGeneratePromptAnswer_ToolCallLoop_ContextCancelled(t *testing.T) {
+	db := newTestDB(t)
+	defer db.Close()
+
+	cid := insertConversation(t, db, "tool ctx cancel")
+
+	firstResponse := inference.MessageResponse{
+		Response: inference.HistoryMessage{
+			Role: "assistant",
+			ToolCalls: []tools.ToolCall{
+				{Function: tools.Function{Name: "get_current_time", Arguments: nil}, Id: "call-abc"},
+			},
+		},
+		TokenCount: 10,
+	}
+
+	mock := &mockInferenceClient{
+		models:            []config.Model{{Name: "llama3.2"}},
+		postChatResponses: []inference.MessageResponse{firstResponse},
+		postChatErr:       context.Canceled,
+	}
+
+	svc := newTestService(t, db, mock)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := svc.GeneratePromptAnswer(ctx, &dto.Prompt{
+		Model:          "llama3.2",
+		Message:        "What time is it?",
+		ConversationId: cid,
+	})
+
+	assert.Error(t, err)
+	assert.ErrorIs(t, err, context.Canceled)
+}
+
+func TestInsertToolAnswer_PersistsToolCallId(t *testing.T) {
+	db := newTestDB(t)
+	defer db.Close()
+
+	cid := insertConversation(t, db, "toolcall persistence")
+
+	mockCall := []tools.ToolCall{
+		{Function: tools.Function{Name: "get_current_time", Arguments: nil}, Id: "call-xyz"},
+	}
+
+	mock := &mockInferenceClient{
+		models: []config.Model{{Name: "llama3.2"}},
+		postChatResponses: []inference.MessageResponse{
+			{
+				Response: inference.HistoryMessage{
+					Role:      "assistant",
+					Content:   "",
+					ToolCalls: mockCall,
+				},
+				TokenCount: 10,
+			},
+			{
+				Response: inference.HistoryMessage{
+					Role:    "assistant",
+					Content: "Done.",
+				},
+				TokenCount:       20,
+				PromptTokenCount: 5,
+			},
+		},
+	}
+
+	svc := newTestService(t, db, mock)
+	_, err := svc.GeneratePromptAnswer(context.Background(), &dto.Prompt{
+		Model:          "llama3.2",
+		Message:        "What time is it?",
+		ConversationId: cid,
+	})
+
+	require.NoError(t, err)
+
+	var toolCallId sql.NullString
+	require.NoError(t, db.Get(&toolCallId,
+		"SELECT tool_call_id FROM messages WHERE role = 'tool' AND conversation_id = ? ORDER BY id DESC LIMIT 1", cid))
+	assert.True(t, toolCallId.Valid)
+	assert.Equal(t, "call-xyz", toolCallId.String)
+}
+
+func TestFetchConversationHistory_IncludesToolCallId(t *testing.T) {
+	db := newTestDB(t)
+	defer db.Close()
+
+	cid := insertConversation(t, db, "toolcall id history")
+
+	_, err := db.Exec(
+		"INSERT INTO messages (role, content, thinking, datetime, conversation_id, token_count, tool_call_id) VALUES (?, ?, '', ?, ?, 0, ?)",
+		"tool", "result", time.Now().Unix(), cid, "call-1",
+	)
+	require.NoError(t, err)
+
+	insertMessage(t, db, "user", "question", cid, 5)
+
+	svc := &Service{
+		messageRepo: message.New(db),
+		convoRepo:   conversation.New(db),
+		inference:   &mockInferenceClient{models: []config.Model{{Name: "llama3.2"}}},
+	}
+
+	history, err := svc.fetchConversationHistory(cid)
+	require.NoError(t, err)
+	require.Len(t, history, 2)
+
+	// First message is the tool row (lower id). Confirm ToolCallId round-tripped.
+	assert.Equal(t, "tool", history[0].Role)
+	assert.Equal(t, "call-1", history[0].ToolCallId)
+	// Plain user message has no tool_call_id → empty string.
+	assert.Equal(t, "user", history[1].Role)
+	assert.Empty(t, history[1].ToolCallId)
+}
+
+// cancelOnSecondCallMock is a mockInferenceClient variant that invokes a stored cancel
+// function on its second PostChat call, so the tool-call loop sees a cancelled context
+// while PostChat itself returns no error (isolating the nil-err / ctx-cancelled branch).
+type cancelOnSecondCallMock struct {
+	models            []config.Model
+	postChatResponses []inference.MessageResponse
+	index             int
+	cancel            func()
+}
+
+func (m *cancelOnSecondCallMock) GetModels() []config.Model { return m.models }
+
+func (m *cancelOnSecondCallMock) PostChat(_ context.Context, _ string, _ []inference.HistoryMessage, _ bool) (inference.MessageResponse, error) {
+	defer func() { m.index++ }()
+	if m.index == 1 {
+		m.cancel()
+	}
+	if m.index < len(m.postChatResponses) {
+		return m.postChatResponses[m.index], nil
+	}
+	return inference.MessageResponse{}, errors.New("mock: no more responses")
+}
+
+func (m *cancelOnSecondCallMock) GenerateConversationTitle(_ context.Context, _ string, _ string) (string, error) {
+	return "title", nil
+}
+
+// TestGeneratePromptAnswer_ToolCallLoop_NilErrContextCancelled isolates the branch at
+// chat.go ~line 82 where, inside the tool-call loop, getHistoryAndPostChat returns a
+// nil error but ctx is cancelled. The first iteration completes a tool call; the mock
+// cancels ctx just before the second PostChat, so the loop must bail with context.Canceled.
+func TestGeneratePromptAnswer_ToolCallLoop_NilErrContextCancelled(t *testing.T) {
+	db := newTestDB(t)
+	defer db.Close()
+
+	cid := insertConversation(t, db, "nil err ctx cancel")
+
+	firstResponse := inference.MessageResponse{
+		Response: inference.HistoryMessage{
+			Role: "assistant",
+			ToolCalls: []tools.ToolCall{
+				{Function: tools.Function{Name: "get_current_time", Arguments: nil}, Id: "call-abc"},
+			},
+		},
+		TokenCount: 10,
+	}
+	secondResponse := inference.MessageResponse{
+		Response: inference.HistoryMessage{
+			Role:    "assistant",
+			Content: "Done.",
+		},
+		TokenCount:       20,
+		PromptTokenCount: 5,
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	mock := &cancelOnSecondCallMock{
+		models:            []config.Model{{Name: "llama3.2"}},
+		postChatResponses: []inference.MessageResponse{firstResponse, secondResponse},
+		cancel:            cancel,
+	}
+
+	svc := newTestService(t, db, mock)
+	_, err := svc.GeneratePromptAnswer(ctx, &dto.Prompt{
+		Model:          "llama3.2",
+		Message:        "What time is it?",
+		ConversationId: cid,
+	})
+
+	assert.Error(t, err)
+	assert.ErrorIs(t, err, context.Canceled)
 }

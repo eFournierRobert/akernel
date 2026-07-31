@@ -10,6 +10,7 @@ import (
 	"akernel/internal/service/inference"
 	"akernel/internal/service/inference/tools"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -36,7 +37,9 @@ func NewChatService(db *sqlx.DB, inference inference.InferenceClient) *Service {
 	return &s
 }
 
-// GeneratePromptAnswer takes a user prompt and generates an AI answer. Also creates a conversation if necessary.
+// GeneratePromptAnswer takes a user prompt and generates an AI answer. It handles the tool-calling workflow when models
+// request function calls. If no conversation exists (ConversationId == -1), it creates one with a generated title.
+// The method iterates through tool calls until the model produces a final response without further requests.
 func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) ([]dto.Answer, error) {
 	if modelIsValid, err := s.doesModelExist(prompt.Model); err != nil {
 		return nil, err
@@ -75,6 +78,9 @@ func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) 
 			if err := s.messageRepo.PopLastUserMessage(prompt.ConversationId); err != nil {
 				return nil, err
 			}
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
 
 			return nil, err
 		}
@@ -93,7 +99,7 @@ func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) 
 	if err = s.messageRepo.PopLastUserMessage(prompt.ConversationId); err != nil {
 		return nil, err
 	}
-	return nil, errors.New("received empty answer from ollama")
+	return nil, errors.New("received empty answer from provider")
 }
 
 // InsertAssistantAnswer saves the AI's response to the database for a specific conversation.
@@ -180,11 +186,12 @@ func (s *Service) insertPrompt(ctx context.Context, prompt *dto.Prompt) (int64, 
 }
 
 // insertToolAnswer saves a single tool execution result as a message in the conversation.
-func (s *Service) insertToolAnswer(conversationId int, toolAnswer string) error {
+func (s *Service) insertToolAnswer(conversationId int, toolAnswer, callId string) error {
 	m := repository.Message{
 		Role:           "tool",
 		Content:        toolAnswer,
 		ConversationId: conversationId,
+		ToolCallId:     sql.NullString{String: callId, Valid: true},
 		DateTime:       time.Now(),
 	}
 
@@ -192,7 +199,7 @@ func (s *Service) insertToolAnswer(conversationId int, toolAnswer string) error 
 	return err
 }
 
-// fetchConversationHistory retrieves all messages for a conversation and converts them into the history format required by Ollama.
+// fetchConversationHistory retrieves all messages for a conversation and converts them into the history format.
 func (s *Service) fetchConversationHistory(conversationId int) ([]inference.HistoryMessage, error) {
 	messages, err := s.messageRepo.SelectMessagesOfConvo(conversationId)
 	if err != nil {
@@ -202,15 +209,16 @@ func (s *Service) fetchConversationHistory(conversationId int) ([]inference.Hist
 	var history []inference.HistoryMessage
 	for _, m := range messages {
 		history = append(history, inference.HistoryMessage{
-			Role:    m.Role,
-			Content: m.Content,
+			Role:       m.Role,
+			Content:    m.Content,
+			ToolCallId: m.ToolCallId.String,
 		})
 	}
 
 	return history, nil
 }
 
-// getHistoryAndPostChat retrieves the conversation history and sends it to Ollama for a response.
+// getHistoryAndPostChat retrieves the conversation history and sends it for a response.
 func (s *Service) getHistoryAndPostChat(ctx context.Context, conversationId int, prompt *dto.Prompt) (inference.MessageResponse, error) {
 	history, err := s.fetchConversationHistory(conversationId)
 	if err != nil {
@@ -225,7 +233,7 @@ func (s *Service) getHistoryAndPostChat(ctx context.Context, conversationId int,
 	return answer, err
 }
 
-// makeToolCalls iterates over the tool calls returned by Ollama, dispatches each through ToolCallRouter, and stores the results as messages.
+// makeToolCalls iterates over the tool calls and executes them.
 func (s *Service) makeToolCalls(thinking string, conversationId int, toolCalls []tools.ToolCall) error {
 	toolCallJson, err := json.Marshal(toolCalls)
 	if err != nil {
@@ -238,7 +246,7 @@ func (s *Service) makeToolCalls(thinking string, conversationId int, toolCalls [
 
 	for _, t := range toolCalls {
 		res := tools.ToolCallRouter(t)
-		if err = s.insertToolAnswer(conversationId, res); err != nil {
+		if err = s.insertToolAnswer(conversationId, res, t.Id); err != nil {
 			return fmt.Errorf("generate prompt answer: %w", err)
 		}
 	}

@@ -7,17 +7,22 @@ import (
 	"akernel/internal/config"
 	"akernel/internal/service"
 	"akernel/internal/service/inference/ollama"
+	"akernel/internal/service/inference/openrouter"
+	"akernel/internal/service/inference/tools"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 )
 
 // Service holds the system prompt, configured models, and provider-specific clients.
 // It acts as the facade between the service layer and lower-level inference providers.
 type Service struct {
-	systemPrompt  HistoryMessage
-	models        []config.Model
-	ollamaService ollamaClient
+	systemPrompt      HistoryMessage
+	models            []config.Model
+	ollamaService     ollamaClient
+	openrouterService openrouterClient
 }
 
 // New creates a new Service from the given configuration, initializing the system prompt and model list.
@@ -28,9 +33,10 @@ func New(config config.Config) Service {
 	}
 
 	return Service{
-		systemPrompt:  systemPrompt,
-		models:        config.Models,
-		ollamaService: ollama.New(),
+		systemPrompt:      systemPrompt,
+		models:            config.Models,
+		ollamaService:     ollama.New(),
+		openrouterService: openrouter.New(config),
 	}
 }
 
@@ -76,6 +82,18 @@ func (s Service) PostChat(ctx context.Context, model string, history []HistoryMe
 			TokenCount:       response.TokenCount,
 			PromptTokenCount: response.PromptTokenCount,
 		}, nil
+	case "openrouter":
+		response, err := s.openrouterService.PostChat(ctx, fullModel.Id, s.convertFullHistoryToOpenrouterFormat(fullHistory))
+		if err != nil {
+			return MessageResponse{}, err
+		}
+
+		return MessageResponse{
+			Model:            model,
+			Response:         s.convertOpenrouterHistoryToInferenceFormat(response.Choices[0].Message),
+			TokenCount:       response.Usage.TotalTokens,
+			PromptTokenCount: response.Usage.PromptTokens,
+		}, nil
 	}
 
 	return MessageResponse{}, errors.New("invalid provider")
@@ -99,7 +117,9 @@ func (s Service) GenerateConversationTitle(ctx context.Context, message, model s
 	return answer.Response.Content, nil
 }
 
-func (s *Service) convertOllamaHistoryToInferenceFormat(h ollama.HistoryMessage) HistoryMessage {
+// convertOllamaHistoryToInferenceFormat transforms an Ollama history message into the
+// internal inference format, preserving role, content, thinking, and tool-call fields.
+func (s Service) convertOllamaHistoryToInferenceFormat(h ollama.HistoryMessage) HistoryMessage {
 	return HistoryMessage{
 		Role:      h.Role,
 		Content:   h.Content,
@@ -108,13 +128,88 @@ func (s *Service) convertOllamaHistoryToInferenceFormat(h ollama.HistoryMessage)
 	}
 }
 
-func (s *Service) convertFullHistoryToOllamaFormat(history []HistoryMessage) []ollama.HistoryMessage {
+// convertOpenrouterHistoryToInferenceFormat transforms an OpenRouter history message into
+// the internal inference format, converting tool-call arguments from JSON back to strings
+// and handling nil Content pointers gracefully.
+func (s Service) convertOpenrouterHistoryToInferenceFormat(h openrouter.HistoryMessage) HistoryMessage {
+	if len(h.ToolCalls) > 0 {
+		for i, t := range h.ToolCalls {
+			var args string
+			if err := json.Unmarshal(t.Function.Arguments, &args); err != nil {
+				h.ToolCalls = nil
+				break
+			}
+
+			h.ToolCalls[i].Function.Arguments = json.RawMessage(args)
+		}
+	}
+
+	if h.Content == nil {
+		emptyString := ""
+		h.Content = &emptyString
+	}
+
+	return HistoryMessage{
+		Role:      h.Role,
+		Content:   *h.Content,
+		ToolCalls: h.ToolCalls,
+	}
+}
+
+// convertFullHistoryToOllamaFormat transforms internal message history into the format
+// expected by Ollama's API, mapping role, content, and tool calls onto Ollama's HistoryMessage.
+func (s Service) convertFullHistoryToOllamaFormat(history []HistoryMessage) []ollama.HistoryMessage {
 	var h []ollama.HistoryMessage
 	for _, m := range history {
 		h = append(h, ollama.HistoryMessage{
 			Role:      m.Role,
 			Content:   m.Content,
 			ToolCalls: m.ToolCalls,
+		})
+	}
+
+	return h
+}
+
+// convertFullHistoryToOpenrouterFormat transforms internal message history into the format expected by OpenRouter's API.
+// It handles extracting tool calls from assistant responses, converting JSON arguments to properly escaped strings,
+// and managing optional content fields (setting Content to nil pointer when empty). The function also sets Type="function"
+// on all ToolCalls for proper OpenRouter formatting.
+func (s Service) convertFullHistoryToOpenrouterFormat(history []HistoryMessage) []openrouter.HistoryMessage {
+	var h []openrouter.HistoryMessage
+	for _, m := range history {
+		if m.Role == "assistant" {
+			var calls []tools.ToolCall
+			if err := json.Unmarshal([]byte(m.Content), &calls); err == nil {
+				m.Content = ""
+
+				for i, c := range calls {
+					stringifyJson, err := json.Marshal(string(c.Function.Arguments))
+					if err != nil {
+						log.Printf("Failed to convert tool call for openrouter format: %s\n", err.Error())
+						continue
+					}
+					calls[i].Function.Arguments = stringifyJson
+					calls[i].Type = "function"
+				}
+				m.ToolCalls = append(m.ToolCalls, calls...)
+			}
+		}
+
+		if m.Content == "" {
+			h = append(h, openrouter.HistoryMessage{
+				Role:      m.Role,
+				Content:   nil,
+				ToolCalls: m.ToolCalls,
+			})
+			continue
+		}
+
+		h = append(h, openrouter.HistoryMessage{
+			Role:       m.Role,
+			Content:    &m.Content,
+			ToolCallId: m.ToolCallId,
+			ToolCalls:  m.ToolCalls,
 		})
 	}
 

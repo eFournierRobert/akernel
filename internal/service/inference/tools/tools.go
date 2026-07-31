@@ -3,9 +3,12 @@ package tools
 
 import "akernel/internal/config"
 
+// Config holds runtime configuration consumed by the tools package, such as API keys
+// (e.g. BraveApiKey) that gate which tools are advertised to the model.
 var Config config.Config
 
-// GetAllToolSchemas returns a slice of all registered tool schemas for Ollama's function calling.
+// GetAllToolSchemas returns a slice of all registered tool schemas for function calling.
+// The available set is gated by Config: web_search is only advertised when a BraveApiKey is set.
 func GetAllToolSchemas() []Tools {
 	if len(Config.BraveApiKey) > 0 {
 		return []Tools{getCurrentTimeSchema(), fetchWebPageSchema(), webSearchSchema()}
