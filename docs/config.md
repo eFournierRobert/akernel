@@ -25,3 +25,16 @@ This part contains the API keys you need to provide to Assistant Kernel if you w
 there's two you can give:
 - `brave_api_key`: The API key for the web search tool. If it isn't provided, `web_search` won't be available.
 - `open_router_key`: The API key for OpenRouter. If you configure models from OpenRouter, you need to also provide this key.
+
+## Example
+```toml
+models = [
+  { name = "science", id = "qwen3.6:35b", description = "Model for sciences", provider = "ollama" },
+  { name = "big science", id = "z-ai/glm-5.2", description = "Model for bigger sciences", provider = "openrouter" }, 
+  { name = "chatter", id = "gemma4:26b-a4b-it-qat", description = "Model for yapping", provider = "ollama"},
+  { name = "big chatter", id = "openai/gpt-5.6-luna", description = "Model for bigger yapping", provider = "openrouter" },
+]
+
+brave_api_key = "[BRAVE API KEY]"
+open_router_key = "[OPENROUTER API KEY]"
+```
