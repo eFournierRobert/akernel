@@ -47,7 +47,7 @@ func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) 
 		return nil, fmt.Errorf("asked for model %s: %w", prompt.Model, service.ErrModelNotFound)
 	}
 
-	if prompt.ConversationId < -1 || (prompt.ConversationId >= 0 && !s.convoRepo.DoesConversationExist(prompt.ConversationId)) {
+	if prompt.ConversationId < 0 || (prompt.ConversationId > 0 && !s.convoRepo.DoesConversationExist(prompt.ConversationId)) {
 		return nil, fmt.Errorf("generate prompt answer: %w", service.ErrInvalidConversation)
 	}
 
@@ -166,7 +166,7 @@ func (s *Service) insertPrompt(ctx context.Context, prompt *dto.Prompt) (int64, 
 		DateTime:       time.Now(),
 	}
 
-	if m.ConversationId == -1 {
+	if m.ConversationId == 0 {
 		title, err := s.inference.GenerateConversationTitle(ctx, m.Content, prompt.Model)
 		if err != nil {
 			return 0, err
