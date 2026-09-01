@@ -124,7 +124,7 @@ func TestChat_HappyPath_NewConversation(t *testing.T) {
 	handler := Handler{service: chatService.NewChatService(db, mock)}
 	mux := newTestMux(handler)
 
-	body := `{"model":"llama3.2","message":"Hey","conversationId":-1}`
+	body := `{"model":"llama3.2","message":"Hey","conversationId":0}`
 	req := httptest.NewRequest(http.MethodPost, "/chat", strings.NewReader(body))
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
@@ -163,7 +163,7 @@ func TestChat_ModelNotFound(t *testing.T) {
 	handler := Handler{service: chatService.NewChatService(db, mock)}
 	mux := newTestMux(handler)
 
-	body := `{"model":"nonexistent","message":"hello","conversationId":-1}`
+	body := `{"model":"nonexistent","message":"hello","conversationId":0}`
 	req := httptest.NewRequest(http.MethodPost, "/chat", strings.NewReader(body))
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)

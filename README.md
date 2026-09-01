@@ -31,8 +31,8 @@ go build -o akernel cmd/main.go
 
 ## Example usage
 ```bash
-# Start a new conversation using conversationId: -1
-curl -X POST http://localhost:50500/chat -d '{"model": "gemma4:e4b", "message": "Could you tell me what is 2 + 2?", "conversationId": -1}'
+# Start a new conversation using conversationId: 0
+curl -X POST http://localhost:50500/chat -d '{"model": "gemma4:e4b", "message": "Could you tell me what is 2 + 2?", "conversationId": 0}'
 
 # Response: [
 # {

@@ -26,7 +26,6 @@ paths:
             example:
               model: "llama3.2"
               message: "What is the meaning of life?"
-              conversationId: -1
       responses:
         "200":
           description: All messages generated after the prompt (tool calls, tool results, assistant answer)
@@ -190,9 +189,9 @@ components:
           example: "What is the meaning of life?"
         conversationId:
           type: integer
-          description: Existing conversation ID, or -1 to create a new conversation.
-          minimum: -1
-          example: -1
+          description: Existing conversation ID, or 0 to create a new conversation.
+          minimum: 0
+          example: 0
 
     AnswerArray:
       type: array

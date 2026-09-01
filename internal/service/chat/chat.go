@@ -38,7 +38,7 @@ func NewChatService(db *sqlx.DB, inference inference.InferenceClient) *Service {
 }
 
 // GeneratePromptAnswer takes a user prompt and generates an AI answer. It handles the tool-calling workflow when models
-// request function calls. If no conversation exists (ConversationId == -1), it creates one with a generated title.
+// request function calls. If no conversation exists (ConversationId == 0), it creates one with a generated title.
 // The method iterates through tool calls until the model produces a final response without further requests.
 func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) ([]dto.Answer, error) {
 	if modelIsValid, err := s.doesModelExist(prompt.Model); err != nil {
@@ -47,7 +47,7 @@ func (s *Service) GeneratePromptAnswer(ctx context.Context, prompt *dto.Prompt) 
 		return nil, fmt.Errorf("asked for model %s: %w", prompt.Model, service.ErrModelNotFound)
 	}
 
-	if prompt.ConversationId < -1 || (prompt.ConversationId >= 0 && !s.convoRepo.DoesConversationExist(prompt.ConversationId)) {
+	if prompt.ConversationId < 0 || (prompt.ConversationId > 0 && !s.convoRepo.DoesConversationExist(prompt.ConversationId)) {
 		return nil, fmt.Errorf("generate prompt answer: %w", service.ErrInvalidConversation)
 	}
 
@@ -166,7 +166,7 @@ func (s *Service) insertPrompt(ctx context.Context, prompt *dto.Prompt) (int64, 
 		DateTime:       time.Now(),
 	}
 
-	if m.ConversationId == -1 {
+	if m.ConversationId == 0 {
 		title, err := s.inference.GenerateConversationTitle(ctx, m.Content, prompt.Model)
 		if err != nil {
 			return 0, err
