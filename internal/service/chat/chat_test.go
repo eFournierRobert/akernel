@@ -113,7 +113,7 @@ func TestGeneratePromptAnswer_HappyPath_NewConversation(t *testing.T) {
 	result, err := svc.GeneratePromptAnswer(context.Background(), &dto.Prompt{
 		Model:          "llama3.2",
 		Message:        "Hey",
-		ConversationId: -1,
+		ConversationId: 0,
 	})
 
 	require.NoError(t, err)
@@ -205,7 +205,7 @@ func TestGeneratePromptAnswer_ModelNotFound(t *testing.T) {
 	_, err := svc.GeneratePromptAnswer(context.Background(), &dto.Prompt{
 		Model:          "nonexistent-model",
 		Message:        "Hello",
-		ConversationId: -1,
+		ConversationId: 0,
 	})
 
 	assert.Error(t, err)
@@ -222,8 +222,8 @@ func TestGeneratePromptAnswer_InvalidConversationId(t *testing.T) {
 		name         string
 		conversation int
 	}{
+		{"negative_sentinel", -1},
 		{"negative_out_of_bounds", -2},
-		{"zero_id", 0},
 		{"nonexistent_positive", 99999},
 	}
 

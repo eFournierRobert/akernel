@@ -189,9 +189,9 @@ components:
           example: "What is the meaning of life?"
         conversationId:
           type: integer
-          description: Existing conversation ID, or -1 to create a new conversation.
-          minimum: -1
-          example: -1
+          description: Existing conversation ID, or 0 to create a new conversation.
+          minimum: 0
+          example: 0
 
     AnswerArray:
       type: array

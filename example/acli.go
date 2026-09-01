@@ -14,7 +14,7 @@ var listConversations *bool
 var chat *string
 
 func setUpFlags() {
-	conversationId = flag.Int("convo", -1, "ID of the conversation")
+	conversationId = flag.Int("convo", 0, "ID of the conversation")
 	modelName = flag.String("model", "", "Name of the AI model to use")
 
 	listModels = flag.Bool("list-models", false, "List AI models available locally")
